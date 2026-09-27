@@ -1,0 +1,23 @@
+# Godot 4
+.godot/
+/android/
+*.translation
+
+# Export output and signing material
+/builds/
+export_credentials.cfg
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local Claude Code settings
+.claude/settings.local.json
