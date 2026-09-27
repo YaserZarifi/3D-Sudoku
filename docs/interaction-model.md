@@ -68,13 +68,32 @@ Placing a digit gives a light haptic tap and a short scale pop. A conflict gives
 
 Notes sits between Erase and Hint. While it's on, digit buttons toggle small candidates in the selected empty cell instead of placing a digit, and the pad shows lighter digits so the mode is obvious. The pad highlights the selected cell's entry, or its notes in notes mode. Notes are laid out in a fixed grid (1 2 3 on the top row), so a digit is always in the same spot. Erase on an empty cell clears its notes.
 
-## Tutorial
+## First launch
 
-A coach card sits at the top of the board area and the cube frames itself below it. Steps: turn the cube, select a cell, place a fitting digit (a wrong one gets a gentle retry message), try slice view, turn on Notes, then finish the cube. Skip ends it at any point. It's offered as the main action on the menu until it's been finished or skipped once.
+Four swipeable intro cards, drawn in code as isometric cubes: what the game is, the slice rule (with X, Y and Z slices in their axis colors), turn and tap, and seeing inside. The last card offers "Try a practice cube". Skip goes to the menu. How to play on the menu shows the cards again.
+
+## Practice tutorial
+
+A tip banner sits at the top of the board area and the cube frames itself below it. Steps: turn the cube, select a cell, place a fitting digit (a wrong one gets a gentle retry message), try slice view, turn on Notes, try Hint, then finish the cube. Skip ends it at any point.
+
+## Hints that teach
+
+The first tap on Hint selects a cell and explains why, in the tip banner, without changing the board: a wrong entry ("This 7 doesn't match the solution"), a naked single ("Only 5 fits here"), a hidden single ("5 has only one spot left in this Z slice", which also switches slice view to that slice), or, if nothing simple exists, a plain reveal. Tapping Hint again, or Fill in on the banner, carries it out. Any other move dismisses it.
 
 ## Menu
 
-Continue is the main action when a game is saved. Below it: tier and level choice, New Game, then Daily, Stats, How to play and Settings. Stats and Settings open as sheets. The Android back button closes an open sheet, then leaves the app.
+Home has one main action: Play, or Continue when a game is saved (with New puzzle under it). Then a Daily puzzle card with the streak, and three small links: How to play, Stats and Settings. Play opens "Choose a puzzle": two tier cards that say what each tier is, a difficulty row and Start. Stats and Settings open as sheets. Android back closes a sheet, then the picker, then leaves the app.
+
+## Reading the cube
+
+- Letters X, Y and Z float past the cube's front edges in the same colors as the dots on the slice buttons.
+- Cells in the focused slice get an outline in that axis color. Other cells shrink and fade further than before.
+- Cells holding the same digit as the selected one get a warm tint as well as the heavier digit.
+- A puzzle starts with the cells growing in from the center, and a solve ends with confetti.
+
+## Number pad and HUD
+
+Each pad digit shows how many are still missing in its corner, and fades when none are. The HUD title adds the mistake count once there is one. The win screen shows the time large, a "New best time" badge when it is one, mistakes, hints, best time and the daily streak, then Next puzzle.
 
 ## Keyboard (desktop testing)
 

@@ -73,6 +73,15 @@ Second pass (done):
 
 `SaveManager` writes settings, statistics and the active puzzle to `user://save.json` after every move, through a temp file. A corrupt save is moved to `save.corrupt.json` and the game starts from defaults. Restored games are fully validated before use.
 
+## 7c. 1.1: clarity and onboarding (done)
+
+- Intro cards on first launch, then an optional practice cube
+- Simpler menu: Play or Continue, Daily, and small links; a separate "Choose a puzzle" page
+- Hints that explain the step first (`scripts/core/hint_finder.gd`)
+- Digits left on the pad, mistakes in the HUD, same-digit tint, a clearer win screen
+- Axis letters and colors tying X, Y and Z buttons to the cube
+- Cube assembles at the start, confetti at the end
+
 ## 8. Mobile builds (Android done)
 
 Done:

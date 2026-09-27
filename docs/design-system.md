@@ -22,6 +22,8 @@ Calm and tactile. A warm off-white background, a matte cube, one accent color. T
 | `conflict` | #D64545 | Conflicts |
 | `success` | #2E9E6A | Completion |
 
+Extra tokens: `axis_x`, `axis_y` and `axis_z` (red, green and purple) tie the slice buttons to the letters and outlines on the cube, `gold` tints cells holding the selected digit and colors confetti, and `hairline` and `shadow` style borders and panels.
+
 Dark mode uses the `DARK` set in the same file, with the same token names.
 
 Contrast target: 4.5:1 for text and 3:1 for state outlines, checked in both themes.

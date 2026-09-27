@@ -46,14 +46,14 @@ godot --path .               # runs the game
 
 ## Running the tests
 
-The tests cover the Sudoku engine, the gesture logic, the game state and the save format. They run headless with no addons:
+The tests cover the Sudoku engine, hints, the gesture logic, the game state and the save format. They run headless with no addons:
 
 ```bash
 godot --headless --path . --import
 godot --headless --path . -s tests/run_tests.gd
 ```
 
-The first command only needs to run once after cloning. The last line should read `72 passed, 0 failed`.
+The first command only needs to run once after cloning. The last line should read `81 passed, 0 failed`.
 
 ## Trying it on an Android phone
 
