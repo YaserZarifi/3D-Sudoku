@@ -8,14 +8,42 @@ const SaveData := preload("res://scripts/core/save_data.gd")
 const SAVE_PATH := "user://save.json"
 const TEMP_PATH := "user://save.tmp"
 const CORRUPT_PATH := "user://save.corrupt.json"
+## Writes requested within this window are merged into one.
+const SAVE_DELAY := 0.5
 
 signal settings_changed
 
 var data: Dictionary = SaveData.defaults()
+var _pending := false
+var _timer: Timer
 
 
 func _ready() -> void:
+	_timer = Timer.new()
+	_timer.one_shot = true
+	_timer.wait_time = SAVE_DELAY
+	_timer.timeout.connect(flush)
+	add_child(_timer)
 	load_file()
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_PREDELETE:
+			flush()
+
+
+## Schedules a write. Frequent calls during play cost one disk write.
+func request_save() -> void:
+	_pending = true
+	if _timer != null and _timer.is_inside_tree() and _timer.is_stopped():
+		_timer.start()
+
+
+## Writes now if anything changed since the last write.
+func flush() -> void:
+	if _pending:
+		save_file()
 
 
 func load_file() -> void:
@@ -30,6 +58,9 @@ func load_file() -> void:
 
 
 func save_file() -> void:
+	_pending = false
+	if _timer != null and _timer.is_inside_tree():
+		_timer.stop()
 	var file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
 	if file == null:
 		push_warning("Could not write save: %s" % error_string(FileAccess.get_open_error()))
@@ -47,7 +78,7 @@ func set_setting(key: String, value: Variant) -> void:
 	if data["settings"].get(key) == value:
 		return
 	data["settings"][key] = value
-	save_file()
+	request_save()
 	settings_changed.emit()
 
 
@@ -61,12 +92,12 @@ func get_game() -> Dictionary:
 
 func store_game(game: Dictionary) -> void:
 	data["game"] = game
-	save_file()
+	request_save()
 
 
 func clear_game() -> void:
 	data["game"] = {}
-	save_file()
+	request_save()
 
 
 func stats() -> Dictionary:
@@ -75,7 +106,7 @@ func stats() -> Dictionary:
 
 func record_start(key: String) -> void:
 	SaveData.record_start(data["stats"], key)
-	save_file()
+	request_save()
 
 
 func record_solve(key: String, seconds: float) -> void:

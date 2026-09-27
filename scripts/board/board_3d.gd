@@ -20,6 +20,10 @@ var reduced_motion := false:
 			cell.reduced_motion = value
 
 var _spacing := ThemeTokens.CELL_SPACING
+## Digits only need to move when the eye moves relative to the board or a
+## cell changes size, so most frames skip the update entirely.
+var _labels_dirty := true
+var _last_eye := Vector3.INF
 var _spacing_tween: Tween
 var _body_mesh: Mesh
 
@@ -50,6 +54,7 @@ func set_palette(palette: Dictionary) -> void:
 func apply_states(states: Array[Dictionary]) -> void:
 	for index in cells.size():
 		cells[index].apply_state(states[index], materials)
+	_labels_dirty = true
 
 
 func show_solved() -> void:
@@ -127,6 +132,15 @@ func _process(_delta: float) -> void:
 	if camera == null or cells.is_empty():
 		return
 	var eye := to_local(camera.global_position)
+	var animating := false
+	for cell in cells:
+		if cell.is_animating():
+			animating = true
+			break
+	if not _labels_dirty and not animating and eye.is_equal_approx(_last_eye):
+		return
+	_labels_dirty = false
+	_last_eye = eye
 	for cell in cells:
 		cell.face_direction((eye - cell.position).normalized())
 
@@ -143,3 +157,4 @@ func _layout() -> void:
 	for cell in cells:
 		var coord := variant.coord_of(cell.index)
 		cell.position = (Vector3(coord) - Vector3.ONE * center) * _spacing
+	_labels_dirty = true

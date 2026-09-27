@@ -36,6 +36,7 @@ var _pause_overlay: Control
 var _solved_overlay: Control
 var _solved_summary: Label
 var _solved_title: Label
+var _shown_seconds := -1
 
 
 func _ready() -> void:
@@ -70,7 +71,12 @@ func setup(digit_count: int, title: String) -> void:
 	show_solved(false)
 
 
+## Cheap to call every frame: the label only changes once a second.
 func set_time(seconds: float) -> void:
+	var whole := int(seconds)
+	if whole == _shown_seconds:
+		return
+	_shown_seconds = whole
 	_timer.text = format_time(seconds)
 
 
@@ -135,7 +141,7 @@ func _build() -> void:
 	_title = UiKit.label("", "MutedLabel")
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info.add_child(_title)
-	_timer = UiKit.label("00:00")
+	_timer = UiKit.label("00:00", "TimerLabel")
 	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info.add_child(_timer)
 	_undo = UiKit.button("Undo", "GhostButton")

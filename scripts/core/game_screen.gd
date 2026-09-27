@@ -106,7 +106,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_CLOSE_REQUEST:
-			_save()
+			_save(true)
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			if _game.has_game() and not _game.state.solved:
 				_set_paused(not _game.paused)
@@ -240,7 +240,7 @@ func _on_new_game() -> void:
 
 
 func _on_menu() -> void:
-	_save()
+	_save(true)
 	menu_requested.emit()
 
 
@@ -250,7 +250,7 @@ func _set_paused(value: bool) -> void:
 	_game.set_paused(value)
 	_ui.show_pause(value)
 	if value:
-		_save()
+		_save(true)
 
 
 func _refresh_board() -> void:
@@ -277,9 +277,11 @@ func _assist_view(index: int) -> void:
 	_camera_rig.look_toward(to_cell.normalized(), SELECTION_ASSIST_ANGLE)
 
 
-func _save() -> void:
+func _save(now: bool = false) -> void:
 	if _game.has_game() and not _game.state.solved:
 		SaveManager.store_game(_game.state.to_dict())
+	if now:
+		SaveManager.flush()
 
 
 func _stats_key() -> String:

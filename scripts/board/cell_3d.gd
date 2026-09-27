@@ -130,6 +130,10 @@ func set_solved_look(materials: CellMaterials) -> void:
 	_mark.visible = false
 
 
+func is_animating() -> bool:
+	return _scale_tween != null and _scale_tween.is_running()
+
+
 func is_pickable() -> bool:
 	return not state.get("is_dimmed", false)
 
