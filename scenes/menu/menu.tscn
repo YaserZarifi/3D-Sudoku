@@ -1,0 +1,35 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/menu_scene.gd" id="1_scene"]
+[ext_resource type="Script" path="res://scripts/camera/camera_controller.gd" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/board/board_3d.gd" id="3_board"]
+[ext_resource type="Script" path="res://scripts/ui/menu_screen.gd" id="4_menu"]
+
+[sub_resource type="Environment" id="Environment_menu"]
+background_mode = 1
+
+[node name="MenuScene" type="Node3D"]
+script = ExtResource("1_scene")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_menu")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, 0, -0.573576, -0.439385, 0.642788, -0.627507, 0.368688, 0.766044, 0.526541, 0, 0, 0)
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("2_camera")
+
+[node name="Board3D" type="Node3D" parent="."]
+script = ExtResource("3_board")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Menu" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_menu")

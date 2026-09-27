@@ -1,0 +1,43 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/game_screen.gd" id="1_screen"]
+[ext_resource type="Script" path="res://scripts/camera/camera_controller.gd" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/board/board_3d.gd" id="3_board"]
+[ext_resource type="Script" path="res://scripts/core/game_manager.gd" id="4_manager"]
+[ext_resource type="Script" path="res://scripts/ui/game_ui.gd" id="5_ui"]
+
+[sub_resource type="Environment" id="Environment_game"]
+background_mode = 1
+
+[node name="Game" type="Node3D"]
+script = ExtResource("1_screen")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_game")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, 0, -0.573576, -0.439385, 0.642788, -0.627507, 0.368688, 0.766044, 0.526541, 0, 0, 0)
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.766044, 0, 0.642788, 0.271654, 0.906308, 0.323744, -0.582563, 0.422618, -0.694272, 0, 0, 0)
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("2_camera")
+
+[node name="Board3D" type="Node3D" parent="."]
+script = ExtResource("3_board")
+
+[node name="GameManager" type="Node" parent="."]
+script = ExtResource("4_manager")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="GameUI" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_ui")
