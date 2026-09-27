@@ -6,6 +6,7 @@ const Variants := preload("res://scripts/sudoku/variants.gd")
 const Generator := preload("res://scripts/sudoku/generator.gd")
 const Validator := preload("res://scripts/sudoku/validator.gd")
 const GameState := preload("res://scripts/core/game_state.gd")
+const HintFinder := preload("res://scripts/core/hint_finder.gd")
 
 signal game_started
 signal selection_changed(index: int)
@@ -14,11 +15,15 @@ signal board_changed(changed_indices: PackedInt32Array)
 signal digit_placed(index: int, conflict: bool)
 signal puzzle_solved
 signal notes_mode_changed(enabled: bool)
+## A hint was found and its cell selected. Empty when a shown hint goes away.
+signal hint_changed(hint: Dictionary)
 
 var state: GameState
 var paused := false
 ## When on, digits toggle pencil marks instead of being placed.
 var notes_mode := false
+## The hint on screen, applied by the next hint() call. Empty when none.
+var pending_hint: Dictionary = {}
 
 
 func new_game(variant_id: String, difficulty: String, puzzle_seed: int = -1, mode: String = GameState.MODE_CLASSIC, date: String = "") -> void:
@@ -36,6 +41,7 @@ func new_game(variant_id: String, difficulty: String, puzzle_seed: int = -1, mod
 func start_with(game_state: GameState) -> void:
 	state = game_state
 	paused = false
+	pending_hint = {}
 	set_notes_mode(false)
 	game_started.emit()
 	selection_changed.emit(state.selected)
@@ -57,6 +63,8 @@ func select_index(index: int) -> void:
 		index = GameState.NO_SELECTION
 	if index == state.selected:
 		return
+	if not pending_hint.is_empty() and pending_hint["index"] != index:
+		_clear_hint()
 	state.selected = index
 	selection_changed.emit(index)
 
@@ -83,6 +91,7 @@ func enter_digit(digit: int) -> void:
 	if not is_playing() or not state.has_selection():
 		return
 	var index := state.selected
+	_clear_hint()
 	if notes_mode and state.board.is_empty(index):
 		if state.toggle_note(index, digit):
 			board_changed.emit(PackedInt32Array([index]))
@@ -99,6 +108,7 @@ func erase() -> void:
 	if not is_playing() or not state.has_selection():
 		return
 	# Erasing an empty cell clears its pencil marks, which place() handles.
+	_clear_hint()
 	if state.place(state.selected, 0):
 		board_changed.emit(PackedInt32Array([state.selected]))
 
@@ -106,25 +116,60 @@ func erase() -> void:
 func undo() -> void:
 	if not is_playing():
 		return
+	_clear_hint()
 	var index := state.undo()
 	if index != GameState.NO_SELECTION:
 		board_changed.emit(PackedInt32Array([index]))
 
 
+## First call explains the next step and selects its cell. Calling again
+## while that hint is showing carries it out.
 func hint() -> void:
 	if not is_playing():
 		return
-	var index := state.hint()
-	if index == GameState.NO_SELECTION:
+	if not pending_hint.is_empty():
+		apply_hint()
+		return
+	var found := HintFinder.find(state.board, state.selected)
+	if found.is_empty():
+		return
+	state.hints_used += 1
+	select_index(found["index"])
+	pending_hint = found
+	pending_hint["text"] = HintFinder.explain(found, state.variant())
+	hint_changed.emit(pending_hint)
+
+
+func apply_hint() -> void:
+	if pending_hint.is_empty() or not is_playing():
+		return
+	var found := pending_hint
+	_clear_hint()
+	var index: int = found["index"]
+	var digit: int = 0 if found["kind"] == HintFinder.KIND_WRONG else found["digit"]
+	if not state.place(index, digit):
 		return
 	board_changed.emit(PackedInt32Array([index]))
-	digit_placed.emit(index, false)
+	if digit != 0:
+		digit_placed.emit(index, false)
 	_check_solved()
+
+
+func dismiss_hint() -> void:
+	_clear_hint()
+
+
+func _clear_hint() -> void:
+	if pending_hint.is_empty():
+		return
+	pending_hint = {}
+	hint_changed.emit({})
 
 
 func restart() -> void:
 	if state == null:
 		return
+	_clear_hint()
 	state.restart()
 	paused = false
 	selection_changed.emit(state.selected)
