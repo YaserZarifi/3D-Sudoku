@@ -25,32 +25,50 @@ Done when: all tests pass headless, and generation for Tier 2 takes under ~200 m
 
 Result: 31 engine tests pass. Tier 2 generation takes about 5 ms (worst seen 12 ms). Clue counts are in game-rules.md.
 
-## 3. 3D board prototype
+## 3. 3D board prototype (done)
 
-- `Board3D` builds 27 `Cell3D` instances from a `Variant`, with shared materials and a single state struct per cell
-- Digit rendering on cells (Label3D or a digit atlas, to be decided by testing readability)
-- `CameraController`: orbit, clamped pitch, pinch zoom, inertia, animated reset
-- `InputManager`: tap versus drag threshold, raycast selection, UI touches kept separate
-- Slice focus and exploded spacing, to test readability
+- `Board3D` builds 27 `Cell3D` instances from a `Variant`, with shared materials and a single state dictionary per cell (`cell_states.gd`)
+- Cells are beveled blocks built in code (`cell_mesh.gd`)
+- Digits are billboard `Label3D`s. Each frame the digit moves to the camera side of its cell, onto the plane touching the cell's nearest point, so a cell never hides its own digit while nearer cells still do. Bold is an outline in the digit's own color
+- `CameraController`: orbit, pitch clamped to ±70°, pinch and wheel zoom, inertia, animated reset, framing that fits the board area on any aspect ratio
+- `InputManager` (a transparent Control over the board area) plus a pure `GestureTracker`: tap versus drag threshold, double tap, pinch. Picking is a ray against cell boxes, no physics
+- Slice focus (X, Y, Z buttons cycle through the three layers, then off) and exploded spacing while dragging
 
-Done when: rotating and selecting feels good on a real phone, and the middle cell is easy to reach.
+Left for a real phone: confirm the feel of orbit speed, inertia and tap threshold, and that the middle cell is easy to reach with slice focus.
 
-## 4. Gameplay
+## 4. Gameplay (done)
 
-`GameManager` and `GameState`: load a generated puzzle, enter digits, erase, undo, conflicts, completion, restart.
+`GameManager` and `GameState`: generated puzzles, enter digits, erase, undo (including erases), hints, conflicts, mistakes, completion, restart. Keyboard works on desktop (1 to 9, Backspace or Delete, Ctrl+Z, R to reset the view).
 
-## 5. Mobile UX
+## 5. Mobile UX (done)
 
-Number pad, HUD, safe areas, responsive layout on small, tall and tablet screens, haptics, theme tokens in use.
+- Number pad (larger 1 to 3 row for Tier 1), Erase and Hint, HUD with Menu, tier, timer and Undo
+- Safe areas on mobile, layout that fits small, tall and tablet screens
+- `HapticsManager` with a setting and rate limit, `ThemeManager` building the UI `Theme` from `ThemeTokens`
+- Digits that are all placed fade on the pad but stay usable
+- Android back button pauses the game, or quits from the menu
 
-## 6. Visual polish
+## 6. Visual polish (done, first pass)
 
-Materials, lighting, typography, icons, motion, sound, completion moment.
+- Light and dark palettes, soft lighting, beveled cells
+- Motion: digit pop, conflict shake, selection scale, camera ease, all halved or removed with Reduced motion
+- Synthesized sounds (select, place, erase, conflict, solved), no audio files
+- Completion: a success-colored wave across the cube, a slow spin, then a summary with time, mistakes, hints and best time
+- Menu with a slowly turning solved cube
 
-## 7. Persistence
+Left: pick a custom font with clear tabular numerals (the default Godot font is used for now) and an app icon.
 
-Save and resume the active puzzle, settings, basic statistics. Corrupt save data falls back safely.
+## 7. Persistence (done)
 
-## 8. Mobile builds
+`SaveManager` writes settings, statistics and the active puzzle to `user://save.json` after every move, through a temp file. A corrupt save is moved to `save.corrupt.json` and the game starts from defaults. Restored games are fully validated before use.
 
-Android export, performance on a mid-range device, input and crash testing. Then iOS export setup.
+## 8. Mobile builds (in progress)
+
+Done:
+- Android and iOS export presets (`export_presets.cfg`), portrait, vibrate permission, no internet permission
+- Build steps in the README
+
+Left (needs a real machine and devices):
+- Install Android export templates and SDK, export a debug APK and test on a mid-range phone
+- Performance, input and crash testing on device
+- iOS export on a Mac with Xcode, signing team set in the preset

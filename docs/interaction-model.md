@@ -36,11 +36,11 @@ A touch becomes a drag once it moves past the threshold, and then it can't selec
 
 ## Readability of the inside
 
-In a 3 × 3 × 3 cube, 26 cells are on the surface and one sits in the middle. Planned tools, to be tested in Milestone 3:
+In a 3 × 3 × 3 cube, 26 cells are on the surface and one sits in the middle. Built in Milestone 3:
 
-- **Slice focus:** tap x, y or z to show one slice at a time, with the other cells dimmed and shrunk. Swipe on the slice bar, or tap again, to move to the next slice. This is the main way to read the middle cell and the full slice constraint.
+- **Slice focus:** tap X, Y or Z to show one slice at a time, with the other cells dimmed, shrunk and not selectable. Tap the same button again to move to the next slice; after the last one, focus turns off. The button shows which slice is showing, for example "Z 2/3". This is the main way to reach the middle cell and read a full slice.
 - **Exploded spacing:** gaps between cells so every cell is visible from most angles. The gap grows a little while dragging.
-- **Selection assist:** selecting a cell lights up its peers (outline, not color alone). The camera eases just enough to keep the selected cell from being hidden, and never snaps.
+- **Selection assist:** selecting a cell lights up its peers (outline, not color alone). If other cells hide the selected cell, the camera turns around the vertical axis by at most about 20°. It never snaps and never changes pitch.
 
 ## Feedback per state
 
@@ -62,3 +62,8 @@ Placing a digit gives a light haptic tap and a short scale pop. A conflict gives
 - Buttons are at least 56 dp. Presses show immediately on touch down.
 - When every copy of a digit is on the board (3 per digit in Tier 2, 9 in Tier 1), its button fades but stays usable.
 - Erase clears the selected entry. Undo reverts the last move, including erases.
+- Hint fills the selected cell from the solution, or the first wrong or empty cell when nothing useful is selected. Hints are counted on the result screen.
+
+## Keyboard (desktop testing)
+
+1 to 9 enter digits, Backspace or Delete erases, Ctrl+Z undoes, R resets the view. A mouse drag orbits and the wheel zooms, because mouse input is emulated as touch.

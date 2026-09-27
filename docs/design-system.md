@@ -1,6 +1,8 @@
 # Design system
 
-This is a starting point, to be implemented as a Godot `Theme` resource plus a small `ThemeTokens` script in Milestones 5 and 6. Values are placeholders until they've been tried on a device. What matters now is that every visual value comes from a token, and nothing is hard-coded in scenes.
+Tokens live in `scripts/ui/theme_tokens.gd`. `ThemeManager` builds the Godot `Theme` from them at runtime, and the board reads the same palette for its materials. Values are placeholders until they've been tried on a device. What matters is that every visual value comes from a token, and nothing is hard-coded in scenes.
+
+The canvas is 1080 pixels wide, so sizes given here in dp are multiplied by `UI_SCALE` (2.6) in code. A 56 dp button is about 146 canvas pixels, which lands near 56 dp on a typical phone.
 
 ## Direction
 
@@ -20,11 +22,13 @@ Calm and tactile. A warm off-white background, a matte cube, one accent color. T
 | `conflict` | #D64545 | Conflicts |
 | `success` | #2E9E6A | Completion |
 
+Dark mode uses the `DARK` set in the same file, with the same token names.
+
 Contrast target: 4.5:1 for text and 3:1 for state outlines, checked in both themes.
 
 ## Typography
 
-One sans family (to be picked; it needs clear tabular numerals, where 1 and 7 are easy to tell apart). Scale: 12, 14, 16, 20, 28, 40. Givens use a heavier weight than entries. Digit glyphs on the cube are rendered from the same font.
+One sans family (still to be picked; it needs clear tabular numerals, where 1 and 7 are easy to tell apart). Godot's default font is used until then. On the cube, bold is drawn as an outline in the digit's own color. Scale: 12, 14, 16, 20, 28, 40. Givens use a heavier weight than entries. Digit glyphs on the cube are rendered from the same font.
 
 ## Spacing and shape
 
