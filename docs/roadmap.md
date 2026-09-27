@@ -82,6 +82,12 @@ Second pass (done):
 - Axis letters and colors tying X, Y and Z buttons to the cube
 - Cube assembles at the start, confetti at the end
 
+## 7d. 1.2: type and polish (done)
+
+- Outfit display face paired with Inter, a type scale with a 56 px hero size, tighter display tracking and wide-tracked overlines
+- Statistics as a full page: headline tiles, a card per tier with win-rate bars, best and average times, and a daily card
+- Digits on the cube scale with their cell and compensate for perspective, so they never overflow while turning
+
 ## 8. Mobile builds (Android done)
 
 Done:

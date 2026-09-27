@@ -30,7 +30,13 @@ Contrast target: 4.5:1 for text and 3:1 for state outlines, checked in both them
 
 ## Typography
 
-Inter (Regular, SemiBold, Bold), bundled in `assets/fonts/` under the SIL Open Font License. Tabular figures are switched on, so timers and digits don't shift. Buttons use SemiBold, titles Bold. On the cube, givens use Bold and entries SemiBold, and same-digit matches get an outline in their own color to look heavier. Scale: 12, 14, 16, 20, 28, 40. Givens use a heavier weight than entries. Digit glyphs on the cube are rendered from the same font.
+Two families, both bundled in `assets/fonts/` under the SIL Open Font License:
+
+- **Outfit** (variable, used at 500, 600 and 700) is the display face: titles, big numbers, primary buttons, the number pad and the digits on the cube. Large display text is tracked 2 px tighter.
+- **Inter** (Regular, SemiBold, Bold) carries body text, captions and the timer. Tabular figures are on, so the timer never shifts.
+- Small uppercase section labels (`OverlineLabel`) use Inter SemiBold tracked 3 px wider.
+
+On the cube, givens use Outfit Bold in ink and entries Outfit Medium in the accent color. Same-digit matches get an outline in their own color. Digits scale with their cell and are corrected for their lift toward the camera, so they never spill past the cell. Scale: 12, 14, 16, 20, 28, 40, 56. Givens use a heavier weight than entries. Digit glyphs on the cube are rendered from the same font.
 
 ## Spacing and shape
 

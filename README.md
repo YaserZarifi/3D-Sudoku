@@ -95,7 +95,7 @@ scripts/camera/    orbit camera
 scripts/input/     touch gestures
 scripts/ui/        theme tokens, HUD, number pad, menu
 scripts/services/  autoloads: save, theme, haptics, audio
-assets/fonts/      Inter (SIL Open Font License)
+assets/fonts/      Outfit and Inter (SIL Open Font License)
 scenes/            main router, menu, game
 tests/             headless tests
 docs/              rules, data model, architecture, interaction, design, roadmap
