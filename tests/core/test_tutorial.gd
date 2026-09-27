@@ -7,7 +7,7 @@ func test_steps_advance_in_order() -> void:
 	var tutorial := Tutorial.new()
 	assert_eq(tutorial.step_id(), "turn")
 	assert_false(tutorial.handle("select"), "events for later steps are ignored")
-	for event in ["orbit", "select", "place_ok", "slice", "notes_on"]:
+	for event in ["orbit", "select", "place_ok", "slice", "notes_on", "hint"]:
 		assert_true(tutorial.handle(event), event)
 	assert_eq(tutorial.step_id(), "finish")
 	assert_true(tutorial.handle("solved"))

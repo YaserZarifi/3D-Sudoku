@@ -99,3 +99,17 @@ static func show_sheet(root: Control, visible_now: bool, reduced_motion: bool) -
 	panel.scale = Vector2.ONE * 0.96
 	var tween := panel.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tween.tween_property(panel, "scale", Vector2.ONE, ThemeTokens.MOTION_SLOW)
+
+
+## A filled circle, used as a color key next to labels such as X, Y and Z.
+static func dot_icon(color: Color, diameter: int) -> ImageTexture:
+	var size := maxi(diameter, 4)
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var radius := size * 0.5
+	for y in size:
+		for x in size:
+			var distance := Vector2(x + 0.5, y + 0.5).distance_to(Vector2(radius, radius))
+			# One pixel of soft edge keeps the dot round at small sizes.
+			var alpha := clampf(radius - distance, 0.0, 1.0)
+			image.set_pixel(x, y, Color(color, color.a * alpha))
+	return ImageTexture.create_from_image(image)

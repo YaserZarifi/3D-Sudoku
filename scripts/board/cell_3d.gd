@@ -101,6 +101,8 @@ func apply_state(new_state: Dictionary, materials: CellMaterials) -> void:
 		_body.material_override = materials.body_conflict
 	elif selected:
 		_body.material_override = materials.body_selected
+	elif bool(state["is_same_digit"]):
+		_body.material_override = materials.body_same
 	elif peer:
 		_body.material_override = materials.body_peer
 	elif given:
@@ -108,9 +110,16 @@ func apply_state(new_state: Dictionary, materials: CellMaterials) -> void:
 	else:
 		_body.material_override = materials.body
 
-	_outline.visible = not dimmed and (selected or peer)
+	var focus_axis: int = state.get("focus_axis", -1)
+	_outline.visible = not dimmed and (selected or peer or focus_axis >= 0)
 	if _outline.visible:
-		_outline.material_override = materials.outline_selected if selected else materials.outline_peer
+		if selected:
+			_outline.material_override = materials.outline_selected
+		elif focus_axis >= 0:
+			# Cells in the focused slice share the axis color of its button.
+			_outline.material_override = materials.outline_axis[focus_axis]
+		else:
+			_outline.material_override = materials.outline_peer
 		var outline_scale := ThemeTokens.OUTLINE_SELECTED if selected else ThemeTokens.OUTLINE_PEER
 		_outline.scale = Vector3.ONE * outline_scale
 
@@ -190,6 +199,21 @@ static func notes_text(mask: int, digit_count: int, per_row: int) -> String:
 			rows.append(" ".join(row))
 			row = PackedStringArray()
 	return "\n".join(rows)
+
+
+## Grows the cell in from nothing after a delay, for the start animation.
+func assemble(delay: float) -> void:
+	if reduced_motion or not is_inside_tree():
+		return
+	_kill(_scale_tween)
+	var label_alpha := _label.modulate.a
+	_visual.scale = Vector3.ONE * 0.01
+	_label.modulate.a = 0.0
+	_scale_tween = create_tween().set_parallel()
+	_scale_tween.tween_property(_visual, "scale", Vector3.ONE * _target_scale, ThemeTokens.ASSEMBLE_DURATION) \
+		.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_scale_tween.tween_property(_label, "modulate:a", label_alpha, ThemeTokens.MOTION_BASE) \
+		.set_delay(delay + ThemeTokens.ASSEMBLE_DURATION * 0.5)
 
 
 func pop() -> void:

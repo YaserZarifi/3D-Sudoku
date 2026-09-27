@@ -18,6 +18,10 @@ const LIGHT := {
 	"conflict": Color("#D64545"),
 	"success": Color("#2E9E6A"),
 	"scrim": Color(0.12, 0.13, 0.16, 0.45),
+	"axis_x": Color("#E5534B"),
+	"axis_y": Color("#2DA44E"),
+	"axis_z": Color("#8250DF"),
+	"gold": Color("#F2B233"),
 }
 
 const DARK := {
@@ -36,6 +40,10 @@ const DARK := {
 	"conflict": Color("#EF6666"),
 	"success": Color("#4CC38A"),
 	"scrim": Color(0.0, 0.0, 0.0, 0.55),
+	"axis_x": Color("#F47067"),
+	"axis_y": Color("#57C278"),
+	"axis_z": Color("#A77BF3"),
+	"gold": Color("#F5C451"),
 }
 
 const FONT_SIZES := {"xs": 12, "sm": 14, "md": 16, "lg": 20, "xl": 28, "xxl": 40}
@@ -52,6 +60,15 @@ const MIN_BUTTON_DP := 56
 const MOTION_FAST := 0.09
 const MOTION_BASE := 0.16
 const MOTION_SLOW := 0.28
+## Cells fly in one after another when a puzzle starts.
+const ASSEMBLE_STEP := 0.018
+const ASSEMBLE_DURATION := 0.32
+const AXIS_DOT_DP := 10
+## Axis letters float this far outside the cube, in world units.
+const AXIS_LABEL_GAP := 0.75
+const AXIS_LABEL_FONT_SIZE := 96
+const CONFETTI_AMOUNT := 90
+const CONFETTI_LIFETIME := 1.8
 ## Buttons shrink to this scale while pressed.
 const PRESS_SCALE := 0.95
 
@@ -65,8 +82,8 @@ const CELL_SPACING := 1.25
 const CELL_SPACING_DRAG := 1.4
 const CELL_BEVEL := 0.08
 const SELECTED_SCALE := 1.1
-const DIMMED_SCALE := 0.55
-const DIMMED_ALPHA := 0.22
+const DIMMED_SCALE := 0.45
+const DIMMED_ALPHA := 0.12
 const OUTLINE_SELECTED := 1.14
 const OUTLINE_PEER := 1.07
 const DIGIT_FONT_SIZE := 128

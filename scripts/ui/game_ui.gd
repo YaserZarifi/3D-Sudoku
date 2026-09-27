@@ -1,12 +1,14 @@
 extends Control
 ## Portrait game layout: HUD, board area, slice bar and number pad, plus the
-## pause and solved overlays. Emits intents and never touches the board.
+## tip banner and the pause and solved sheets. Emits intents and never
+## touches the board.
 
 const ThemeTokens := preload("res://scripts/ui/theme_tokens.gd")
 const InputManager := preload("res://scripts/input/input_manager.gd")
 const UiKit := preload("res://scripts/ui/ui_kit.gd")
 
 const AXIS_NAMES: PackedStringArray = ["X", "Y", "Z"]
+const AXIS_TOKENS: PackedStringArray = ["axis_x", "axis_y", "axis_z"]
 ## Faded look for digits that are all on the board. They stay usable.
 const DONE_DIGIT_ALPHA := 0.35
 
@@ -23,27 +25,32 @@ signal menu_pressed
 signal reset_view_pressed
 signal slice_pressed(axis: int)
 signal board_area_changed(area: Rect2)
-signal coach_skipped
+## The button on the tip banner (Skip, Fill in and so on) was pressed.
+signal banner_action
 
 var board_input: InputManager
 
 var _safe_margin: MarginContainer
 var _title: Label
+var _title_base := ""
 var _timer: Label
 var _undo: Button
 var _slice_buttons: Array[Button] = []
 var _pad: GridContainer
 var _pad_buttons: Dictionary = {}
+var _pad_counts: Dictionary = {}
+var _notes_button: Button
 var _pause_overlay: Control
 var _solved_overlay: Control
-var _solved_summary: Label
 var _solved_title: Label
+var _solved_time: Label
+var _solved_badge: Label
+var _solved_details: GridContainer
 var _shown_seconds := -1
-var _notes_button: Button
-var _coach: PanelContainer
-var _coach_text: Label
-var _coach_step: Label
-var _notes_mode := false
+var _banner: PanelContainer
+var _banner_text: Label
+var _banner_caption: Label
+var _banner_button: Button
 
 
 func _ready() -> void:
@@ -57,10 +64,12 @@ func _ready() -> void:
 
 
 func setup(digit_count: int, title: String) -> void:
-	_title.text = title
+	_title_base = title
+	set_mistakes(0)
 	for child in _pad.get_children():
 		child.queue_free()
 	_pad_buttons.clear()
+	_pad_counts.clear()
 	# Tier 1 has three digits, shown as one row of larger buttons.
 	_pad.columns = mini(digit_count, 3)
 	var height := ThemeTokens.dp(ThemeTokens.MIN_BUTTON_DP)
@@ -72,8 +81,17 @@ func setup(digit_count: int, title: String) -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 		button.pressed.connect(digit_pressed.emit.bind(digit))
+		# How many of this digit are still missing, in the corner.
+		var count := UiKit.label("", "CaptionLabel")
+		count.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+		count.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		count.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		count.position -= Vector2(ThemeTokens.space(2), ThemeTokens.space(1))
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(count)
 		_pad.add_child(button)
 		_pad_buttons[digit] = button
+		_pad_counts[digit] = count
 	show_pause(false)
 	show_solved(false)
 
@@ -87,6 +105,12 @@ func set_time(seconds: float) -> void:
 	_timer.text = format_time(seconds)
 
 
+func set_mistakes(count: int) -> void:
+	_title.text = _title_base
+	if count > 0:
+		_title.text += " · %d %s" % [count, "mistake" if count == 1 else "mistakes"]
+
+
 func set_undo_enabled(enabled: bool) -> void:
 	_undo.disabled = not enabled
 
@@ -94,7 +118,6 @@ func set_undo_enabled(enabled: bool) -> void:
 ## Marks pad digits that match the selection: the selected cell's entry, or
 ## its pencil marks in notes mode. Notes mode also restyles the whole pad.
 func set_pad_highlight(active_digits: PackedInt32Array, notes_mode: bool) -> void:
-	_notes_mode = notes_mode
 	_notes_button.set_pressed_no_signal(notes_mode)
 	for digit: int in _pad_buttons:
 		var button: Button = _pad_buttons[digit]
@@ -104,19 +127,26 @@ func set_pad_highlight(active_digits: PackedInt32Array, notes_mode: bool) -> voi
 			button.theme_type_variation = "PadButtonNotes" if notes_mode else "PadButton"
 
 
-## Tutorial card over the top of the board. Empty text hides it.
-func show_coach(text: String, step: int = 0, total: int = 0) -> void:
-	var was_visible := _coach.visible
-	_coach.visible = text != ""
-	_coach_text.text = text
-	_coach_step.text = "%d of %d" % [step + 1, total] if total > 0 else ""
-	if _coach.visible and (not was_visible or text != ""):
-		UiKit.fade_in(_coach, ThemeManager.reduced_motion())
+## remaining is how many more of this digit a solved board needs.
+func set_digit_remaining(digit: int, remaining: int) -> void:
+	if not _pad_buttons.has(digit):
+		return
+	(_pad_buttons[digit] as Button).modulate.a = DONE_DIGIT_ALPHA if remaining <= 0 else 1.0
+	(_pad_counts[digit] as Label).text = str(remaining) if remaining > 0 else ""
 
 
-func set_digit_done(digit: int, done: bool) -> void:
-	if _pad_buttons.has(digit):
-		(_pad_buttons[digit] as Button).modulate.a = DONE_DIGIT_ALPHA if done else 1.0
+## Tip card over the top of the board, used by the tutorial and by hints.
+## Empty text hides it. action is the button label, empty for none.
+func show_banner(text: String, caption: String = "", action: String = "") -> void:
+	var was_visible := _banner.visible
+	_banner.visible = text != ""
+	_banner_text.text = text
+	_banner_caption.text = caption
+	_banner_caption.visible = caption != ""
+	_banner_button.text = action
+	_banner_button.visible = action != ""
+	if _banner.visible and not was_visible:
+		UiKit.fade_in(_banner, ThemeManager.reduced_motion())
 
 
 ## axis is -1 when no slice is focused.
@@ -131,17 +161,30 @@ func show_pause(visible_now: bool) -> void:
 	UiKit.show_sheet(_pause_overlay, visible_now, ThemeManager.reduced_motion())
 
 
-func show_solved(visible_now: bool, summary: String = "") -> void:
-	_solved_summary.text = summary
+## info: {"title", "time", "record": bool, "details": [[label, value], ...]}
+func show_solved(visible_now: bool, info: Dictionary = {}) -> void:
+	if visible_now:
+		_solved_title.text = info.get("title", "Solved!")
+		_solved_time.text = info.get("time", "")
+		_solved_badge.visible = info.get("record", false)
+		for child in _solved_details.get_children():
+			child.queue_free()
+		for row: Array in info.get("details", []):
+			var name := UiKit.label(str(row[0]), "MutedLabel")
+			name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_solved_details.add_child(name)
+			var value := UiKit.label(str(row[1]), "TimerLabel")
+			value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			_solved_details.add_child(value)
 	UiKit.show_sheet(_solved_overlay, visible_now, ThemeManager.reduced_motion())
 
 
-## Screen area the cube should fit in: the board region minus the
-## tutorial card when it's showing.
+## Screen area the cube should fit in: the board region minus the tip
+## banner when it's showing.
 func board_area() -> Rect2:
 	var area := board_input.get_global_rect()
-	if _coach != null and _coach.visible:
-		var cut := _coach.size.y + ThemeTokens.space(2)
+	if _banner != null and _banner.visible:
+		var cut := _banner.size.y + ThemeTokens.space(2)
 		area.position.y += cut
 		area.size.y = maxf(area.size.y - cut, 1.0)
 	return area
@@ -166,7 +209,7 @@ func _build() -> void:
 
 	var hud := HBoxContainer.new()
 	column.add_child(hud)
-	var pause := UiKit.button("Menu", "GhostButton")
+	var pause := UiKit.button("Pause", "GhostButton")
 	pause.pressed.connect(pause_pressed.emit)
 	hud.add_child(pause)
 	var info := VBoxContainer.new()
@@ -188,7 +231,7 @@ func _build() -> void:
 	board_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_input.resized.connect(func() -> void: board_area_changed.emit(board_area()))
 	column.add_child(board_input)
-	_build_coach()
+	_build_banner()
 
 	var slice_bar := HBoxContainer.new()
 	column.add_child(slice_bar)
@@ -229,71 +272,77 @@ func _build() -> void:
 	hint.pressed.connect(hint_pressed.emit)
 	side.add_child(hint)
 
-	_pause_overlay = _overlay("Paused", [
+	var pause_sheet := UiKit.sheet(self, "Paused")
+	_pause_overlay = pause_sheet["root"]
+	_add_actions(pause_sheet["box"], [
 		["Resume", "AccentButton", resume_pressed],
 		["Restart", "Button", restart_pressed],
-		["New Game", "Button", new_game_pressed],
-		["Main Menu", "Button", menu_pressed],
+		["New puzzle", "Button", new_game_pressed],
+		["Main menu", "GhostButton", menu_pressed],
 	])
-	var solved_parts := _overlay_parts("Solved", [
-		["New Game", "AccentButton", new_game_pressed],
-		["Main Menu", "Button", menu_pressed],
+
+	var solved_sheet := UiKit.sheet(self, "Solved!")
+	_solved_overlay = solved_sheet["root"]
+	_solved_title = solved_sheet["title"]
+	var box: VBoxContainer = solved_sheet["box"]
+	_solved_time = UiKit.label("", "TitleLabel")
+	_solved_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_solved_time)
+	_solved_badge = UiKit.label("New best time", "CaptionLabel")
+	_solved_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_solved_badge)
+	_solved_details = GridContainer.new()
+	_solved_details.columns = 2
+	box.add_child(_solved_details)
+	_add_actions(box, [
+		["Next puzzle", "AccentButton", new_game_pressed],
+		["Main menu", "GhostButton", menu_pressed],
 	])
-	_solved_overlay = solved_parts[0]
-	_solved_title = solved_parts[1]
-	_solved_summary = UiKit.label("", "MutedLabel")
-	_solved_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var box: VBoxContainer = solved_parts[2]
-	box.add_child(_solved_summary)
-	box.move_child(_solved_summary, 1)
 
 
-func _build_coach() -> void:
-	_coach = PanelContainer.new()
-	_coach.theme_type_variation = "CardPanel"
-	_coach.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_coach.mouse_filter = Control.MOUSE_FILTER_STOP
-	_coach.visible = false
+func _build_banner() -> void:
+	_banner = PanelContainer.new()
+	_banner.theme_type_variation = "CardPanel"
+	_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_banner.mouse_filter = Control.MOUSE_FILTER_STOP
+	_banner.visible = false
 	var report := func() -> void: board_area_changed.emit(board_area())
-	_coach.resized.connect(report)
-	_coach.visibility_changed.connect(report)
-	board_input.add_child(_coach)
+	_banner.resized.connect(report)
+	_banner.visibility_changed.connect(report)
+	board_input.add_child(_banner)
 	var row := HBoxContainer.new()
-	_coach.add_child(row)
+	_banner.add_child(row)
 	var texts := VBoxContainer.new()
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	texts.add_theme_constant_override("separation", 0)
 	row.add_child(texts)
-	_coach_step = UiKit.label("", "CaptionLabel")
-	texts.add_child(_coach_step)
-	_coach_text = UiKit.label("")
-	_coach_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_coach_text.add_theme_font_size_override("font_size", ThemeTokens.font_size("md"))
-	texts.add_child(_coach_text)
-	var skip := UiKit.button("Skip", "GhostButton")
-	skip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	skip.pressed.connect(coach_skipped.emit)
-	row.add_child(skip)
+	_banner_caption = UiKit.label("", "CaptionLabel")
+	texts.add_child(_banner_caption)
+	_banner_text = UiKit.label("")
+	_banner_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_banner_text.add_theme_font_size_override("font_size", ThemeTokens.font_size("md"))
+	texts.add_child(_banner_text)
+	_banner_button = UiKit.button("", "GhostButton")
+	_banner_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_banner_button.pressed.connect(banner_action.emit)
+	row.add_child(_banner_button)
 
 
-func _overlay(title: String, actions: Array) -> Control:
-	return _overlay_parts(title, actions)[0]
-
-
-## Returns [overlay, title label, button column].
-func _overlay_parts(title: String, actions: Array) -> Array:
-	var sheet := UiKit.sheet(self, title)
-	var box: VBoxContainer = sheet["box"]
+func _add_actions(box: VBoxContainer, actions: Array) -> void:
 	for action: Array in actions:
 		var button := UiKit.button(action[0], action[1])
 		var action_signal: Signal = action[2]
 		button.pressed.connect(action_signal.emit)
 		box.add_child(button)
-	return [sheet["root"], sheet["title"], box]
 
 
 func _apply_theme() -> void:
 	theme = ThemeManager.theme
+	for axis in _slice_buttons.size():
+		_slice_buttons[axis].icon = UiKit.dot_icon(ThemeManager.color(AXIS_TOKENS[axis]), ThemeTokens.dp(ThemeTokens.AXIS_DOT_DP))
+	if _solved_badge != null:
+		_solved_badge.add_theme_color_override("font_color", ThemeManager.color("accent"))
 
 
 func _update_safe_area() -> void:

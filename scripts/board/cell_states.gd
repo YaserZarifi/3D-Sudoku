@@ -38,5 +38,6 @@ static func compute(board: Board, selected: int, focus_axis: int = NO_FOCUS, foc
 			"is_conflict": conflicts.has(index),
 			"is_dimmed": dimmed,
 			"notes": notes[index] if digit == 0 and index < notes.size() else 0,
+			"focus_axis": focus_axis if focus_axis != NO_FOCUS and not dimmed else NO_FOCUS,
 		})
 	return states

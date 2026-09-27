@@ -14,8 +14,10 @@ const STEPS: Array[Dictionary] = [
 		"text": "Cells inside are hard to see. Tap X, Y or Z to show one layer at a time."},
 	{"id": "notes", "until": "notes_on",
 		"text": "Not sure yet? Turn on Notes to jot down candidates."},
+	{"id": "hint", "until": "hint",
+		"text": "Stuck? Tap Hint. It explains the next step before filling anything."},
 	{"id": "finish", "until": "solved",
-		"text": "Now fill the whole cube. Hint fills a cell if you get stuck."},
+		"text": "Now fill the whole cube. Every line holds 1, 2 and 3."},
 ]
 
 var step := 0

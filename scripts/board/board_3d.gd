@@ -26,6 +26,9 @@ var _labels_dirty := true
 var _last_eye := Vector3.INF
 var _spacing_tween: Tween
 var _body_mesh: Mesh
+var _axis_labels: Array[Label3D] = []
+var _confetti: CPUParticles3D
+var _palette: Dictionary = {}
 
 
 ## fonts: {"entry": Font, "given": Font}, both optional.
@@ -34,6 +37,7 @@ func build(board_variant: SudokuVariant, palette: Dictionary, fonts: Dictionary 
 		cell.queue_free()
 	cells.clear()
 	variant = board_variant
+	_palette = palette
 	materials = CellMaterials.new(palette)
 	_body_mesh = CellMesh.beveled_box(ThemeTokens.CELL_SIZE, ThemeTokens.CELL_BEVEL)
 
@@ -48,7 +52,85 @@ func build(board_variant: SudokuVariant, palette: Dictionary, fonts: Dictionary 
 
 
 func set_palette(palette: Dictionary) -> void:
+	_palette = palette
 	materials = CellMaterials.new(palette)
+	_color_axis_labels()
+
+
+## Letters X, Y and Z just outside the cube, in the colors of the slice
+## buttons, so it's clear which way each slice runs.
+func show_axes(font: Font) -> void:
+	for label in _axis_labels:
+		label.queue_free()
+	_axis_labels.clear()
+	for axis in 3:
+		var label := Label3D.new()
+		label.text = ["X", "Y", "Z"][axis]
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.font_size = ThemeTokens.AXIS_LABEL_FONT_SIZE
+		label.pixel_size = ThemeTokens.DIGIT_PIXEL_SIZE
+		label.outline_size = 0
+		label.shaded = false
+		if font != null:
+			label.font = font
+		add_child(label)
+		_axis_labels.append(label)
+	_color_axis_labels()
+	_layout()
+
+
+## Scales every cell in from nothing, center first, when a puzzle starts.
+func play_assemble() -> void:
+	if reduced_motion:
+		return
+	for cell in cells:
+		cell.assemble(cell.position.length() * ThemeTokens.ASSEMBLE_STEP * 10.0)
+	_labels_dirty = true
+
+
+## A short burst of confetti around the cube.
+func play_confetti() -> void:
+	if reduced_motion:
+		return
+	if _confetti == null:
+		_confetti = CPUParticles3D.new()
+		_confetti.one_shot = true
+		_confetti.emitting = false
+		_confetti.amount = ThemeTokens.CONFETTI_AMOUNT
+		_confetti.lifetime = ThemeTokens.CONFETTI_LIFETIME
+		_confetti.explosiveness = 0.95
+		_confetti.direction = Vector3.UP
+		_confetti.spread = 75.0
+		_confetti.initial_velocity_min = 4.0
+		_confetti.initial_velocity_max = 7.5
+		_confetti.gravity = Vector3(0, -7.0, 0)
+		_confetti.angular_velocity_min = -360.0
+		_confetti.angular_velocity_max = 360.0
+		_confetti.scale_amount_min = 0.7
+		_confetti.scale_amount_max = 1.3
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.12, 0.08)
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.vertex_color_use_as_albedo = true
+		material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		quad.material = material
+		_confetti.mesh = quad
+		add_child(_confetti)
+	var colors := Gradient.new()
+	colors.offsets = PackedFloat32Array([0.0, 0.25, 0.5, 0.75, 1.0])
+	colors.colors = PackedColorArray([_palette.get("accent", Color.BLUE), _palette.get("gold", Color.GOLD),
+		_palette.get("success", Color.GREEN), _palette.get("axis_x", Color.RED), _palette.get("axis_z", Color.PURPLE)])
+	colors.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CONSTANT
+	_confetti.color_initial_ramp = colors
+	_confetti.position = Vector3(0, -extent() * 0.5, 0)
+	_confetti.restart()
+
+
+func _color_axis_labels() -> void:
+	for axis in _axis_labels.size():
+		_axis_labels[axis].modulate = _palette.get(["axis_x", "axis_y", "axis_z"][axis], Color.WHITE)
 
 
 func apply_states(states: Array[Dictionary]) -> void:
@@ -157,4 +239,11 @@ func _layout() -> void:
 	for cell in cells:
 		var coord := variant.coord_of(cell.index)
 		cell.position = (Vector3(coord) - Vector3.ONE * center) * _spacing
+	var edge := center * _spacing
+	var reach := edge + ThemeTokens.CELL_SIZE * 0.5 + ThemeTokens.AXIS_LABEL_GAP
+	# Each letter sits past the end of a front edge running along its axis,
+	# clear of the digits: X bottom right, Y top left, Z bottom left front.
+	var anchors := [Vector3(reach, -edge, edge), Vector3(-edge, reach, edge), Vector3(-edge, -edge, reach)]
+	for axis in _axis_labels.size():
+		_axis_labels[axis].position = anchors[axis]
 	_labels_dirty = true

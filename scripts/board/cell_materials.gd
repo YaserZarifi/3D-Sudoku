@@ -11,6 +11,9 @@ var body_peer: StandardMaterial3D
 var body_conflict: StandardMaterial3D
 var body_solved: StandardMaterial3D
 var body_dimmed: StandardMaterial3D
+var body_same: StandardMaterial3D
+## Outline for cells in the focused slice, one per axis color.
+var outline_axis: Array[StandardMaterial3D] = []
 var outline_selected: StandardMaterial3D
 var outline_peer: StandardMaterial3D
 var mark_conflict: StandardMaterial3D
@@ -32,6 +35,9 @@ func _init(palette: Dictionary) -> void:
 	body_solved = _lit(cell.lerp(palette["success"], 0.35))
 	body_dimmed = _lit(Color(cell, ThemeTokens.DIMMED_ALPHA))
 	body_dimmed.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	body_same = _lit(cell.lerp(palette["gold"], 0.35))
+	for token in ["axis_x", "axis_y", "axis_z"]:
+		outline_axis.append(_outline(Color(palette[token], 0.8)))
 	outline_selected = _outline(accent)
 	outline_peer = _outline(Color(accent, 0.55))
 	mark_conflict = _unlit(palette["conflict"])

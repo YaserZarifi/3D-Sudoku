@@ -9,6 +9,7 @@ const CellStates := preload("res://scripts/board/cell_states.gd")
 const GameUi := preload("res://scripts/ui/game_ui.gd")
 const SaveData := preload("res://scripts/core/save_data.gd")
 const Tutorial := preload("res://scripts/core/tutorial.gd")
+const HintFinder := preload("res://scripts/core/hint_finder.gd")
 
 ## Fixed so every new player gets the same gentle first cube.
 const TUTORIAL_SEED := 3
@@ -50,7 +51,7 @@ func _ready() -> void:
 	_ui.reset_view_pressed.connect(_camera_rig.reset_view)
 	_ui.slice_pressed.connect(_on_slice)
 	_ui.board_area_changed.connect(_camera_rig.set_view_area)
-	_ui.coach_skipped.connect(_on_coach_skipped)
+	_ui.banner_action.connect(_on_banner_action)
 
 	var board_input := _ui.board_input
 	board_input.tapped.connect(_on_tap)
@@ -65,6 +66,7 @@ func _ready() -> void:
 	_game.digit_placed.connect(_on_digit_placed)
 	_game.puzzle_solved.connect(_on_solved)
 	_game.notes_mode_changed.connect(_on_notes_mode_changed)
+	_game.hint_changed.connect(_on_hint_changed)
 
 	ThemeManager.theme_changed.connect(_apply_palette)
 	SaveManager.settings_changed.connect(_apply_motion_setting)
@@ -153,6 +155,9 @@ func _on_game_started() -> void:
 	_board.rotation = Vector3.ZERO
 	_board.build(variant, ThemeManager.palette, {"entry": ThemeManager.font_semibold, "given": ThemeManager.font_bold})
 	_board.reduced_motion = ThemeManager.reduced_motion()
+	_board.show_axes(ThemeManager.font_bold)
+	# After the first states land, so each cell grows in with its own look.
+	_board.call_deferred("play_assemble")
 	_camera_rig.frame_board(_board.extent())
 	_camera_rig.reset_view()
 	_focus_axis = CellStates.NO_FOCUS
@@ -212,7 +217,8 @@ func _on_board_changed(_changed: PackedInt32Array) -> void:
 	var variant = _game.state.variant()
 	for digit in range(1, variant.digit_count + 1):
 		var progress: Vector2i = _game.digit_progress(digit)
-		_ui.set_digit_done(digit, progress.x >= progress.y)
+		_ui.set_digit_remaining(digit, progress.y - progress.x)
+	_ui.set_mistakes(_game.state.mistakes)
 	_ui.set_undo_enabled(not _game.state.undo_stack.is_empty())
 	_refresh_pad()
 	_save()
@@ -232,6 +238,7 @@ func _on_digit_placed(index: int, conflict: bool) -> void:
 
 func _on_solved() -> void:
 	var state: GameState = _game.state
+	var previous_best: float = SaveManager.stats().get(_stats_key(), {}).get("best_time", 0.0)
 	if _stats_key() != "":
 		SaveManager.record_solve(_stats_key(), state.elapsed)
 	if state.mode == GameState.MODE_DAILY:
@@ -239,30 +246,37 @@ func _on_solved() -> void:
 	if state.mode == GameState.MODE_TUTORIAL:
 		SaveManager.set_setting("tutorial_done", true)
 		_tutorial = null
-		_ui.show_coach("")
+	_ui.show_banner("")
 	SaveManager.clear_game()
 	_focus_axis = CellStates.NO_FOCUS
 	_refresh_board()
 	_ui.set_slice(_focus_axis, 0, state.variant().size)
 	AudioManager.play("solved")
 	HapticsManager.play("success")
+	_board.play_confetti()
 	await _board.play_solved_wave(ThemeTokens.SOLVED_WAVE_STEP)
 	_celebrating = not ThemeManager.reduced_motion()
 	await get_tree().create_timer(ThemeTokens.SOLVED_PANEL_DELAY).timeout
 	if _game.state != state:
 		return
-	var summary := "Time %s" % GameUi.format_time(state.elapsed)
-	summary += "\nMistakes %d" % state.mistakes
+	var details: Array = [["Mistakes", str(state.mistakes)]]
 	if state.hints_used > 0:
-		summary += "\nHints %d" % state.hints_used
+		details.append(["Hints", str(state.hints_used)])
 	var best: float = SaveManager.stats().get(_stats_key(), {}).get("best_time", 0.0)
 	if best > 0.0:
-		summary += "\nBest %s" % GameUi.format_time(best)
+		details.append(["Best time", GameUi.format_time(best)])
 	if state.mode == GameState.MODE_DAILY:
-		summary += "\nStreak %d" % SaveData.current_streak(SaveManager.daily(), SaveData.today())
+		details.append(["Daily streak", str(SaveData.current_streak(SaveManager.daily(), SaveData.today()))])
+	var info := {
+		"title": "Solved!",
+		"time": GameUi.format_time(state.elapsed),
+		"record": _stats_key() != "" and previous_best > 0.0 and state.elapsed < previous_best,
+		"details": details,
+	}
 	if state.mode == GameState.MODE_TUTORIAL:
-		summary = "You've got it.\nSlice Sudoku works the same way,\nwith slices and digits 1 to 9."
-	_ui.show_solved(true, summary)
+		info["title"] = "You've got it!"
+		info["details"] = [["Next", "Slice Sudoku"]]
+	_ui.show_solved(true, info)
 
 
 func _on_slice(axis: int) -> void:
@@ -288,22 +302,44 @@ func _on_notes_mode_changed(enabled: bool) -> void:
 		_tutorial_event("notes_on")
 
 
-func _on_coach_skipped() -> void:
+## The banner button: carries out a showing hint, or skips the tutorial.
+func _on_banner_action() -> void:
+	if not _game.pending_hint.is_empty():
+		_game.hint()
+		return
 	SaveManager.set_setting("tutorial_done", true)
 	_tutorial = null
-	_ui.show_coach("")
+	_ui.show_banner("")
+
+
+func _on_hint_changed(hint: Dictionary) -> void:
+	if hint.is_empty():
+		_show_coach()
+		return
+	_tutorial_event("hint")
+	var action := "Erase it" if hint["kind"] == "wrong" else "Fill in"
+	_ui.show_banner(hint["text"], "Hint", action)
+	# Show the slice the reasoning is about, so the player can check it.
+	var group: int = hint.get("group", -1)
+	if group >= 0:
+		var part := HintFinder.describe_group(_game.state.variant(), group)
+		if part["shape"] == "slice":
+			_focus_axis = part["axis"]
+			_focus_layer = part["layer"]
+			_ui.set_slice(_focus_axis, _focus_layer, _game.state.variant().size)
+			_refresh_board()
 
 
 func _tutorial_event(event: String) -> void:
-	if _tutorial != null and _tutorial.handle(event):
+	if _tutorial != null and _tutorial.handle(event) and _game.pending_hint.is_empty():
 		_show_coach()
 
 
 func _show_coach() -> void:
 	if _tutorial == null or _tutorial.is_finished():
-		_ui.show_coach("")
+		_ui.show_banner("")
 		return
-	_ui.show_coach(_tutorial.text(), _tutorial.step, _tutorial.step_count())
+	_ui.show_banner(_tutorial.text(), "Step %d of %d" % [_tutorial.step + 1, _tutorial.step_count()], "Skip")
 
 
 func _on_restart() -> void:
@@ -314,7 +350,7 @@ func _on_restart() -> void:
 
 func _on_new_game() -> void:
 	_tutorial = null
-	_ui.show_coach("")
+	_ui.show_banner("")
 	_ui.show_pause(false)
 	_ui.show_solved(false)
 	start_new(SaveManager.get_setting("last_variant"), SaveManager.get_setting("last_difficulty"))
