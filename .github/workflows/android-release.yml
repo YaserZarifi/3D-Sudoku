@@ -1,8 +1,9 @@
 name: Android release
 
 # Builds a signed APK and publishes it as a GitHub release.
-# Push a tag like v1.0.0, or run it by hand from the Actions tab.
-# Release notes come from docs/releases/<tag>.md.
+# It runs when a tag like v1.0.0 is pushed, when release notes are added or
+# changed in docs/releases/ (the newest version there is released), or by
+# hand from the Actions tab. Release notes come from docs/releases/<tag>.md.
 #
 # Signing: set the repository secrets ANDROID_KEYSTORE_BASE64,
 # ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS to sign every release with
@@ -12,6 +13,10 @@ name: Android release
 on:
   push:
     tags: ["v*"]
+    branches: ["**"]
+    paths:
+      - "docs/releases/**"
+      - ".github/workflows/android-release.yml"
   workflow_dispatch:
     inputs:
       version:
@@ -41,8 +46,14 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             tag="${{ inputs.version }}"
-          else
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             tag="${GITHUB_REF_NAME}"
+          else
+            tag="$(ls docs/releases | grep -E '^v[0-9]' | sed 's/\.md$//' | sort -V | tail -1)"
+          fi
+          if [ -z "$tag" ]; then
+            echo "::error::No release version found."
+            exit 1
           fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "name=${tag#v}" >> "$GITHUB_OUTPUT"
