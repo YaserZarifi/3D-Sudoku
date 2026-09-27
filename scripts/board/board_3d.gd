@@ -224,7 +224,8 @@ func _process(_delta: float) -> void:
 	_labels_dirty = false
 	_last_eye = eye
 	for cell in cells:
-		cell.face_direction((eye - cell.position).normalized())
+		var to_eye := eye - cell.position
+		cell.face_direction(to_eye.normalized(), to_eye.length())
 
 
 func _set_spacing(value: float) -> void:

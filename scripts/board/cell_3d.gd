@@ -180,12 +180,21 @@ func pick_box() -> AABB:
 
 ## Places the billboard digit on the camera side of the body. The digit sits
 ## on the plane that touches the box's nearest point, so the cell never
-## covers its own digit while nearer cells still hide it.
-func face_direction(direction: Vector3) -> void:
-	var half := ThemeTokens.CELL_SIZE * 0.5 * _visual.scale.x
+## covers its own digit while nearer cells still hide it. eye_distance is
+## from the camera to the cell's center.
+func face_direction(direction: Vector3, eye_distance: float) -> void:
+	var cell_scale := _visual.scale.x
+	var half := ThemeTokens.CELL_SIZE * 0.5 * cell_scale
 	var support := half * (absf(direction.x) + absf(direction.y) + absf(direction.z))
-	_label.position = direction * (support + LABEL_MARGIN)
+	var lift := support + LABEL_MARGIN
+	_label.position = direction * lift
 	_notes.position = _label.position
+	# The digit follows the cell's size, and shrinks by as much as lifting it
+	# toward the eye would enlarge it, so it never spills past its cell.
+	var perspective := clampf((eye_distance - lift) / maxf(eye_distance, 0.001), 0.5, 1.0)
+	var digit_scale := Vector3.ONE * (cell_scale * perspective)
+	_label.scale = digit_scale
+	_notes.scale = digit_scale
 
 
 ## Pencil marks laid out in a grid, with gaps where a digit isn't noted,
