@@ -9,6 +9,7 @@ const Generator := preload("res://scripts/sudoku/generator.gd")
 const SaveData := preload("res://scripts/core/save_data.gd")
 const UiKit := preload("res://scripts/ui/ui_kit.gd")
 const GameUi := preload("res://scripts/ui/game_ui.gd")
+const StatsPage := preload("res://scripts/ui/stats_page.gd")
 
 const TIERS := {
 	"latin_cube_3": {
@@ -26,7 +27,6 @@ const SETTINGS: Array[Array] = [
 	["reduced_motion", "Reduced motion"],
 	["dark_mode", "Dark mode"],
 ]
-const STATS_COLUMNS: PackedStringArray = ["", "Played", "Solved", "Best", "Average"]
 const TIER_CARD_DP := 96
 
 signal new_game_requested(variant_id: String, difficulty: String)
@@ -51,8 +51,7 @@ var _tier_cards: Dictionary = {}
 var _level_buttons: Dictionary = {}
 var _setting_buttons: Dictionary = {}
 var _settings_sheet: Dictionary
-var _stats_sheet: Dictionary
-var _stats_body: VBoxContainer
+var _stats: StatsPage
 
 
 func _ready() -> void:
@@ -76,13 +75,13 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	# Back closes a sheet, then the picker, before it leaves the app.
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST and is_inside_tree():
-		if not _close_sheets() and _picker.visible:
+		if not _close_sheets() and not _home.visible:
 			_show_page(_home)
 
 
 ## True while back should stay inside the menu instead of quitting.
 func has_open_sheet() -> bool:
-	return _settings_sheet["root"].visible or _stats_sheet["root"].visible or _picker.visible
+	return _settings_sheet["root"].visible or not _home.visible
 
 
 func _build() -> void:
@@ -95,6 +94,10 @@ func _build() -> void:
 	_picker = _page(pages)
 	_build_home()
 	_build_picker()
+	_stats = StatsPage.new()
+	_stats.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_stats.back_pressed.connect(_show_page.bind(_home))
+	pages.add_child(_stats)
 
 	_settings_sheet = UiKit.sheet(self, "Settings")
 	var settings_box: VBoxContainer = _settings_sheet["box"]
@@ -106,11 +109,6 @@ func _build() -> void:
 		settings_box.add_child(toggle)
 		_setting_buttons[key] = toggle
 	settings_box.add_child(_close_button(_settings_sheet))
-
-	_stats_sheet = UiKit.sheet(self, "Statistics")
-	_stats_body = VBoxContainer.new()
-	_stats_sheet["box"].add_child(_stats_body)
-	_stats_sheet["box"].add_child(_close_button(_stats_sheet))
 
 
 func _page(parent: Control) -> VBoxContainer:
@@ -217,7 +215,11 @@ func _open_area(page: VBoxContainer) -> Control:
 
 ## The empty part of the current page, where the decorative cube can sit.
 func open_area() -> Rect2:
-	return (_home_spacer if _home.visible else _picker_spacer).get_global_rect()
+	if _home.visible:
+		return _home_spacer.get_global_rect()
+	if _picker.visible:
+		return _picker_spacer.get_global_rect()
+	return Rect2()
 
 
 ## A tall button with a title and a line of explanation under it.
@@ -232,7 +234,8 @@ func _card_button(title: String, body: String, variation: String) -> Dictionary:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(box)
 	var title_label := UiKit.label(title, "")
-	title_label.add_theme_font_override("font", ThemeManager.font_semibold)
+	title_label.add_theme_font_override("font", ThemeManager.display_semibold)
+	title_label.add_theme_font_size_override("font_size", ThemeTokens.font_size("xl"))
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(title_label)
 	var body_label := UiKit.label(body, "CaptionLabel")
@@ -245,6 +248,7 @@ func _card_button(title: String, body: String, variation: String) -> Dictionary:
 func _show_page(page: VBoxContainer) -> void:
 	_home.visible = page == _home
 	_picker.visible = page == _picker
+	_stats.visible = page == _stats
 	UiKit.fade_in(page, ThemeManager.reduced_motion())
 
 
@@ -263,7 +267,7 @@ func _close_button(sheet: Dictionary) -> Button:
 
 func _close_sheets() -> bool:
 	var closed := false
-	for sheet: Dictionary in [_settings_sheet, _stats_sheet]:
+	for sheet: Dictionary in [_settings_sheet]:
 		if sheet["root"].visible:
 			UiKit.show_sheet(sheet["root"], false, true)
 			closed = true
@@ -275,8 +279,8 @@ func _open_settings() -> void:
 
 
 func _open_stats() -> void:
-	_fill_stats()
-	UiKit.show_sheet(_stats_sheet["root"], true, ThemeManager.reduced_motion())
+	_stats.refresh()
+	_show_page(_stats)
 
 
 func _pick_tier(variant_id: String) -> void:
@@ -303,11 +307,11 @@ func _refresh() -> void:
 	var done := SaveData.solved_today(daily, today)
 	_daily.disabled = done
 	if done:
-		_daily_detail.text = "Done for today. Streak %d, come back tomorrow." % streak
+		_daily_detail.text = "Done for today · %d day streak" % streak
 	elif streak > 0:
-		_daily_detail.text = "Today's Slice Sudoku. Keep your %d day streak going." % streak
+		_daily_detail.text = "Keep your %d day streak going" % streak
 	else:
-		_daily_detail.text = "One new Slice Sudoku every day."
+		_daily_detail.text = "A new Slice Sudoku every day"
 
 	for variant_id: String in _tier_cards:
 		var card: Dictionary = _tier_cards[variant_id]
@@ -342,55 +346,6 @@ func _describe_saved(game: Dictionary) -> String:
 	var raw_elapsed: Variant = game.get("elapsed", 0.0)
 	var elapsed := float(raw_elapsed) if raw_elapsed is float or raw_elapsed is int else 0.0
 	return "%s · %s" % [name, GameUi.format_time(elapsed)]
-
-
-func _fill_stats() -> void:
-	for child in _stats_body.get_children():
-		child.queue_free()
-	var stats := SaveManager.stats()
-	for variant_id in Variants.all_ids():
-		var heading := UiKit.label(Variants.by_id(variant_id).display_name, "HeadingLabel")
-		heading.add_theme_font_size_override("font_size", ThemeTokens.font_size("lg"))
-		_stats_body.add_child(heading)
-		var grid := GridContainer.new()
-		grid.columns = STATS_COLUMNS.size()
-		grid.add_theme_constant_override("h_separation", ThemeTokens.space(3))
-		_stats_body.add_child(grid)
-		for column in STATS_COLUMNS:
-			grid.add_child(_cell(column, true, column != ""))
-		for difficulty in Generator.DIFFICULTIES:
-			var entry: Dictionary = stats.get("%s/%s" % [variant_id, difficulty], {})
-			grid.add_child(_cell(difficulty.capitalize(), true, false))
-			_add_entry_cells(grid, entry)
-
-	var daily_heading := UiKit.label("Daily", "HeadingLabel")
-	daily_heading.add_theme_font_size_override("font_size", ThemeTokens.font_size("lg"))
-	_stats_body.add_child(daily_heading)
-	var daily := SaveManager.daily()
-	var daily_entry: Dictionary = stats.get(SaveData.DAILY_KEY, {})
-	_stats_body.add_child(UiKit.label("Streak %d · Longest %d · Solved %d" % [
-		SaveData.current_streak(daily, SaveData.today()),
-		int(daily.get("best_streak", 0)),
-		int(daily_entry.get("solved", 0)),
-	], "MutedLabel"))
-
-
-func _add_entry_cells(grid: GridContainer, entry: Dictionary) -> void:
-	var best: float = entry.get("best_time", 0.0)
-	var average := SaveData.average_time(entry)
-	grid.add_child(_cell(str(entry.get("played", 0))))
-	grid.add_child(_cell(str(entry.get("solved", 0))))
-	grid.add_child(_cell(GameUi.format_time(best) if best > 0.0 else "-"))
-	grid.add_child(_cell(GameUi.format_time(average) if average > 0.0 else "-"))
-
-
-func _cell(text: String, header: bool = false, align_right: bool = true) -> Label:
-	var cell := UiKit.label(text, "CaptionLabel" if header else "")
-	if not header:
-		cell.add_theme_font_size_override("font_size", ThemeTokens.font_size("md"))
-	cell.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if align_right else HORIZONTAL_ALIGNMENT_LEFT
-	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return cell
 
 
 func _apply_theme() -> void:

@@ -34,7 +34,7 @@ func _ready() -> void:
 	ThemeManager.theme_changed.connect(_apply_palette)
 	var variant := Variants.slice_sudoku(3)
 	var puzzle := Generator.generate(variant, "easy", DEMO_SEED)
-	_board.build(variant, ThemeManager.palette, {"entry": ThemeManager.font_semibold, "given": ThemeManager.font_bold})
+	_board.build(variant, ThemeManager.palette, {"entry": ThemeManager.display_medium, "given": ThemeManager.display_bold})
 	_demo = Board.from_givens(variant, puzzle.solution)
 	_apply_palette()
 	_camera_rig.frame_board(_board.extent())

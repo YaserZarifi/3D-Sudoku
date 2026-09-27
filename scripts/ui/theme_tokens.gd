@@ -46,7 +46,7 @@ const DARK := {
 	"gold": Color("#F5C451"),
 }
 
-const FONT_SIZES := {"xs": 12, "sm": 14, "md": 16, "lg": 20, "xl": 28, "xxl": 40}
+const FONT_SIZES := {"xs": 12, "sm": 14, "md": 16, "lg": 20, "xl": 28, "xxl": 40, "hero": 56}
 ## The canvas is 1080 wide, so UI sizes are scaled up from the dp values in the docs.
 const UI_SCALE := 2.6
 
@@ -75,6 +75,15 @@ const PRESS_SCALE := 0.95
 const FONT_REGULAR := "res://assets/fonts/Inter-Regular.woff2"
 const FONT_SEMIBOLD := "res://assets/fonts/Inter-SemiBold.woff2"
 const FONT_BOLD := "res://assets/fonts/Inter-Bold.woff2"
+## Display face for titles, big numbers, buttons and the cube's digits.
+const FONT_DISPLAY := "res://assets/fonts/Outfit-Variable.ttf"
+const DISPLAY_WEIGHT_MEDIUM := 500
+const DISPLAY_WEIGHT_SEMIBOLD := 600
+const DISPLAY_WEIGHT_BOLD := 700
+## Letter spacing in font pixels. Big display text reads better a bit
+## tighter, small uppercase labels a bit looser.
+const TRACKING_DISPLAY := -2
+const TRACKING_OVERLINE := 3
 
 ## Board geometry, in world units.
 const CELL_SIZE := 0.82
@@ -86,7 +95,7 @@ const DIMMED_SCALE := 0.45
 const DIMMED_ALPHA := 0.12
 const OUTLINE_SELECTED := 1.14
 const OUTLINE_PEER := 1.07
-const DIGIT_FONT_SIZE := 128
+const DIGIT_FONT_SIZE := 132
 const DIGIT_PIXEL_SIZE := 0.0034
 const DIGIT_BOLD_OUTLINE := 14
 const NOTE_FONT_SIZE := 60

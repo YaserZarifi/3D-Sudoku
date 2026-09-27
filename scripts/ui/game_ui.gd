@@ -285,10 +285,10 @@ func _build() -> void:
 	_solved_overlay = solved_sheet["root"]
 	_solved_title = solved_sheet["title"]
 	var box: VBoxContainer = solved_sheet["box"]
-	_solved_time = UiKit.label("", "TitleLabel")
+	_solved_time = UiKit.label("", "DisplayLabel")
 	_solved_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_solved_time)
-	_solved_badge = UiKit.label("New best time", "CaptionLabel")
+	_solved_badge = UiKit.label("NEW BEST TIME", "OverlineLabel")
 	_solved_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_solved_badge)
 	_solved_details = GridContainer.new()

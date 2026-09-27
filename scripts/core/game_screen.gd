@@ -153,9 +153,9 @@ func _on_game_started() -> void:
 	var variant = _game.state.variant()
 	_celebrating = false
 	_board.rotation = Vector3.ZERO
-	_board.build(variant, ThemeManager.palette, {"entry": ThemeManager.font_semibold, "given": ThemeManager.font_bold})
+	_board.build(variant, ThemeManager.palette, {"entry": ThemeManager.display_medium, "given": ThemeManager.display_bold})
 	_board.reduced_motion = ThemeManager.reduced_motion()
-	_board.show_axes(ThemeManager.font_bold)
+	_board.show_axes(ThemeManager.display_bold)
 	# After the first states land, so each cell grows in with its own look.
 	_board.call_deferred("play_assemble")
 	_camera_rig.frame_board(_board.extent())
