@@ -6,13 +6,15 @@ const LIGHT := {
 	"bg": Color("#F1F0ED"),
 	"surface": Color("#FFFFFF"),
 	"surface_pressed": Color("#E4E7EC"),
+	"hairline": Color("#1F2328", 0.08),
+	"shadow": Color("#1F2328", 0.10),
 	"ink": Color("#1F2328"),
 	"ink_muted": Color("#6B6F76"),
 	"cell": Color("#E8E6DF"),
 	"cell_given": Color("#DAD7CD"),
 	"accent": Color("#2F6FEB"),
 	"accent_ink": Color("#FFFFFF"),
-	"peer": Color("#2F6FEB", 0.18),
+	"peer": Color("#2F6FEB", 0.12),
 	"conflict": Color("#D64545"),
 	"success": Color("#2E9E6A"),
 	"scrim": Color(0.12, 0.13, 0.16, 0.45),
@@ -22,13 +24,15 @@ const DARK := {
 	"bg": Color("#16181C"),
 	"surface": Color("#23262C"),
 	"surface_pressed": Color("#2F333B"),
+	"hairline": Color("#FFFFFF", 0.07),
+	"shadow": Color("#000000", 0.35),
 	"ink": Color("#ECEDEF"),
 	"ink_muted": Color("#9BA0A8"),
 	"cell": Color("#3A3E46"),
 	"cell_given": Color("#2C2F35"),
 	"accent": Color("#5B8FF5"),
 	"accent_ink": Color("#FFFFFF"),
-	"peer": Color("#5B8FF5", 0.22),
+	"peer": Color("#5B8FF5", 0.16),
 	"conflict": Color("#EF6666"),
 	"success": Color("#4CC38A"),
 	"scrim": Color(0.0, 0.0, 0.0, 0.55),
@@ -39,13 +43,21 @@ const FONT_SIZES := {"xs": 12, "sm": 14, "md": 16, "lg": 20, "xl": 28, "xxl": 40
 const UI_SCALE := 2.6
 
 const SPACE := [4, 8, 12, 16, 24, 32]
-const RADIUS_BUTTON := 8
-const RADIUS_PANEL := 12
+const RADIUS_BUTTON := 14
+const RADIUS_PANEL := 22
+const HAIRLINE_DP := 1.0
+const SHADOW_DP := 14
 const MIN_BUTTON_DP := 56
 
 const MOTION_FAST := 0.09
 const MOTION_BASE := 0.16
 const MOTION_SLOW := 0.28
+## Buttons shrink to this scale while pressed.
+const PRESS_SCALE := 0.95
+
+const FONT_REGULAR := "res://assets/fonts/Inter-Regular.woff2"
+const FONT_SEMIBOLD := "res://assets/fonts/Inter-SemiBold.woff2"
+const FONT_BOLD := "res://assets/fonts/Inter-Bold.woff2"
 
 ## Board geometry, in world units.
 const CELL_SIZE := 0.82

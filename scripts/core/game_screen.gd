@@ -116,7 +116,7 @@ func _on_game_started() -> void:
 	var variant = _game.state.variant()
 	_celebrating = false
 	_board.rotation = Vector3.ZERO
-	_board.build(variant, ThemeManager.palette)
+	_board.build(variant, ThemeManager.palette, {"entry": ThemeManager.font_semibold, "given": ThemeManager.font_bold})
 	_board.reduced_motion = ThemeManager.reduced_motion()
 	_camera_rig.frame_board(_board.extent())
 	_camera_rig.reset_view()

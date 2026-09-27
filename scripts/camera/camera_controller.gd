@@ -15,7 +15,7 @@ const INERTIA_MIN_SPEED := 0.05
 const MAX_INERTIA_SPEED := 9.0
 ## Radius the default view keeps clear around the board, as a multiple of its
 ## half width. A bit over sqrt(2) so corners never touch the edges.
-const FIT_RADIUS_FACTOR := 1.55
+const FIT_RADIUS_FACTOR := 1.7
 ## Zoom range relative to the default distance.
 const MIN_ZOOM := 0.6
 const MAX_ZOOM := 1.6

@@ -24,7 +24,8 @@ var _spacing_tween: Tween
 var _body_mesh: Mesh
 
 
-func build(board_variant: SudokuVariant, palette: Dictionary, font: Font = null) -> void:
+## fonts: {"entry": Font, "given": Font}, both optional.
+func build(board_variant: SudokuVariant, palette: Dictionary, fonts: Dictionary = {}) -> void:
 	for cell in cells:
 		cell.queue_free()
 	cells.clear()
@@ -35,7 +36,7 @@ func build(board_variant: SudokuVariant, palette: Dictionary, font: Font = null)
 	for index in variant.cell_count:
 		var cell := Cell3D.new()
 		cell.name = "Cell%d" % index
-		cell.setup(index, _body_mesh, font)
+		cell.setup(index, _body_mesh, fonts)
 		cell.reduced_motion = reduced_motion
 		add_child(cell)
 		cells.append(cell)

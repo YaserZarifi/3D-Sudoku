@@ -10,7 +10,23 @@ static func button(text: String, variation: String = "Button") -> Button:
 	result.theme_type_variation = variation
 	result.custom_minimum_size = Vector2(ThemeTokens.dp(ThemeTokens.MIN_BUTTON_DP), ThemeTokens.dp(ThemeTokens.MIN_BUTTON_DP))
 	result.focus_mode = Control.FOCUS_NONE
+	add_press_feedback(result)
 	return result
+
+
+## Shrinks a button slightly while it's held, so every press feels physical.
+static func add_press_feedback(target: BaseButton) -> void:
+	var center := func() -> void: target.pivot_offset = target.size * 0.5
+	target.resized.connect(center)
+	target.button_down.connect(func() -> void: _press_to(target, ThemeTokens.PRESS_SCALE))
+	target.button_up.connect(func() -> void: _press_to(target, 1.0))
+
+
+static func _press_to(target: Control, goal: float) -> void:
+	if not target.is_inside_tree():
+		return
+	var tween := target.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(target, "scale", Vector2.ONE * goal, ThemeTokens.MOTION_FAST)
 
 
 static func label(text: String, variation: String = "") -> Label:

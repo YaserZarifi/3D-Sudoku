@@ -23,11 +23,14 @@ var _outline: MeshInstance3D
 var _mark: MeshInstance3D
 var _label: Label3D
 var _target_scale := 1.0
+var _font_entry: Font
+var _font_given: Font
 var _scale_tween: Tween
 var _shake_tween: Tween
 
 
-func setup(cell_index: int, body_mesh: Mesh, font: Font) -> void:
+## fonts may hold "entry" and "given"; missing ones use Godot's default.
+func setup(cell_index: int, body_mesh: Mesh, fonts: Dictionary) -> void:
 	index = cell_index
 	_visual = Node3D.new()
 	add_child(_visual)
@@ -57,8 +60,10 @@ func setup(cell_index: int, body_mesh: Mesh, font: Font) -> void:
 	_label.pixel_size = ThemeTokens.DIGIT_PIXEL_SIZE
 	_label.double_sided = true
 	_label.shaded = false
-	if font != null:
-		_label.font = font
+	_font_entry = fonts.get("entry")
+	_font_given = fonts.get("given", _font_entry)
+	if _font_entry != null:
+		_label.font = _font_entry
 	add_child(_label)
 
 
@@ -102,8 +107,12 @@ func apply_state(new_state: Dictionary, materials: CellMaterials) -> void:
 	if dimmed:
 		color.a = ThemeTokens.DIMMED_ALPHA
 	_label.modulate = color
-	# Drawing an outline in the digit's own color reads as a bold weight.
-	var bold := not dimmed and (given or bool(state["is_same_digit"]))
+	if _font_given != null:
+		_label.font = _font_given if given else _font_entry
+	# An outline in the digit's own color makes matching digits heavier.
+	var bold := not dimmed and bool(state["is_same_digit"])
+	if _font_given == null:
+		bold = bold or (given and not dimmed)
 	_label.outline_size = ThemeTokens.DIGIT_BOLD_OUTLINE if bold else 0
 	_label.outline_modulate = color
 

@@ -15,6 +15,8 @@ run/main_scene="res://scenes/main/main.tscn"
 config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 config/quit_on_go_back=false
+boot_splash/bg_color=Color(0.945, 0.941, 0.929, 1)
+boot_splash/show_image=false
 
 [autoload]
 
@@ -104,4 +106,5 @@ pointing/emulate_touch_from_mouse=true
 [rendering]
 
 renderer/rendering_method="mobile"
+anti_aliasing/quality/msaa_3d=1
 textures/vram_compression/import_etc2_astc=true
