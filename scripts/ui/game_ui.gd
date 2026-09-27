@@ -14,6 +14,7 @@ signal digit_pressed(digit: int)
 signal erase_pressed
 signal undo_pressed
 signal hint_pressed
+signal notes_toggled(enabled: bool)
 signal pause_pressed
 signal resume_pressed
 signal restart_pressed
@@ -37,6 +38,8 @@ var _solved_overlay: Control
 var _solved_summary: Label
 var _solved_title: Label
 var _shown_seconds := -1
+var _notes_button: Button
+var _notes_mode := false
 
 
 func _ready() -> void:
@@ -82,6 +85,19 @@ func set_time(seconds: float) -> void:
 
 func set_undo_enabled(enabled: bool) -> void:
 	_undo.disabled = not enabled
+
+
+## Marks pad digits that match the selection: the selected cell's entry, or
+## its pencil marks in notes mode. Notes mode also restyles the whole pad.
+func set_pad_highlight(active_digits: PackedInt32Array, notes_mode: bool) -> void:
+	_notes_mode = notes_mode
+	_notes_button.set_pressed_no_signal(notes_mode)
+	for digit: int in _pad_buttons:
+		var button: Button = _pad_buttons[digit]
+		if active_digits.has(digit):
+			button.theme_type_variation = "PadButtonActive"
+		else:
+			button.theme_type_variation = "PadButtonNotes" if notes_mode else "PadButton"
 
 
 func set_digit_done(digit: int, done: bool) -> void:
@@ -183,6 +199,11 @@ func _build() -> void:
 	erase.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 	erase.pressed.connect(erase_pressed.emit)
 	side.add_child(erase)
+	_notes_button = UiKit.button("Notes", "ToggleButton")
+	_notes_button.toggle_mode = true
+	_notes_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_notes_button.toggled.connect(notes_toggled.emit)
+	side.add_child(_notes_button)
 	var hint := UiKit.button("Hint", "Button")
 	hint.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	hint.pressed.connect(hint_pressed.emit)

@@ -1,6 +1,7 @@
 extends RefCounted
 ## Everything about the puzzle in progress: the board plus session data.
 ## Undo is a stack of {index, previous, next} moves, never board snapshots.
+## A move that changed pencil marks also carries "notes": [[cell, old mask]].
 
 const Variants := preload("res://scripts/sudoku/variants.gd")
 const SudokuVariant := preload("res://scripts/sudoku/variant.gd")
@@ -9,13 +10,17 @@ const Validator := preload("res://scripts/sudoku/validator.gd")
 const Puzzle := preload("res://scripts/sudoku/puzzle.gd")
 
 const NO_SELECTION := -1
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
+## Oldest save format from_dict() still reads.
+const MIN_SAVE_VERSION := 1
 
 var board: Board
 var difficulty: String = ""
 var puzzle_seed: int = 0
 var selected: int = NO_SELECTION
 var undo_stack: Array[Dictionary] = []
+## Pencil marks per cell, as digit bitmasks (bit d set means d is noted).
+var notes: PackedInt32Array
 var elapsed: float = 0.0
 var mistakes: int = 0
 var hints_used: int = 0
@@ -27,6 +32,7 @@ static func from_puzzle(puzzle: Puzzle) -> RefCounted:
 	state.board = puzzle.to_board()
 	state.difficulty = puzzle.difficulty
 	state.puzzle_seed = puzzle.seed
+	state.notes.resize(state.board.variant.cell_count)
 	return state
 
 
@@ -38,19 +44,56 @@ func has_selection() -> bool:
 	return board.variant.is_valid_index(selected)
 
 
-## Places a digit (0 erases) and records it for undo. Returns whether the
-## board changed.
+## Places a digit (0 erases) and records it for undo. Placing a digit also
+## clears the cell's own notes and that digit from its peers' notes.
+## Erasing a cell with no digit clears its notes. Returns whether anything
+## changed.
 func place(index: int, digit: int) -> bool:
-	if solved:
+	if solved or not board.variant.is_valid_index(index) or board.is_given(index):
 		return false
 	var previous := board.get_value(index)
+	if digit == 0 and previous == 0:
+		if notes[index] == 0:
+			return false
+		undo_stack.append({"index": index, "previous": 0, "next": 0, "notes": [[index, notes[index]]]})
+		notes[index] = 0
+		return true
 	if not board.set_value(index, digit):
 		return false
-	undo_stack.append({"index": index, "previous": previous, "next": digit})
+
+	var changed := []
+	if notes[index] != 0:
+		changed.append([index, notes[index]])
+		notes[index] = 0
+	if digit != 0:
+		var bit := 1 << digit
+		for peer in board.variant.peers[index]:
+			if notes[peer] & bit != 0:
+				changed.append([peer, notes[peer]])
+				notes[peer] &= ~bit
+	var move := {"index": index, "previous": previous, "next": digit}
+	if not changed.is_empty():
+		move["notes"] = changed
+	undo_stack.append(move)
 	if digit != 0 and Validator.is_conflict(board, index):
 		mistakes += 1
 	solved = Validator.is_solved(board)
 	return true
+
+
+## Adds or removes a pencil mark on an empty cell. Returns whether it changed.
+func toggle_note(index: int, digit: int) -> bool:
+	if solved or not board.variant.is_valid_index(index) or not board.variant.is_valid_digit(digit):
+		return false
+	if board.is_given(index) or board.get_value(index) != 0:
+		return false
+	undo_stack.append({"index": index, "previous": 0, "next": 0, "notes": [[index, notes[index]]]})
+	notes[index] ^= 1 << digit
+	return true
+
+
+func has_note(index: int, digit: int) -> bool:
+	return notes[index] & (1 << digit) != 0
 
 
 ## Reverts the last move. Returns the changed cell, or NO_SELECTION.
@@ -60,6 +103,8 @@ func undo() -> int:
 	var move: Dictionary = undo_stack.pop_back()
 	var index: int = move["index"]
 	board.set_value(index, move["previous"])
+	for pair: Array in move.get("notes", []):
+		notes[int(pair[0])] = int(pair[1])
 	return index
 
 
@@ -85,6 +130,7 @@ func hint() -> int:
 func restart() -> void:
 	board.clear_entries()
 	undo_stack.clear()
+	notes.fill(0)
 	selected = NO_SELECTION
 	elapsed = 0.0
 	mistakes = 0
@@ -102,6 +148,7 @@ func to_dict() -> Dictionary:
 		"values": Array(board.values),
 		"solution": Array(board.solution),
 		"undo": undo_stack.duplicate(true),
+		"notes": Array(notes),
 		"elapsed": elapsed,
 		"mistakes": mistakes,
 		"hints_used": hints_used,
@@ -111,7 +158,8 @@ func to_dict() -> Dictionary:
 ## Rebuilds a state from to_dict() output. Returns null for anything that
 ## doesn't describe a consistent, solvable puzzle.
 static func from_dict(data: Dictionary) -> RefCounted:
-	if int(data.get("version", 0)) != SAVE_VERSION:
+	var version := int(data.get("version", 0))
+	if version < MIN_SAVE_VERSION or version > SAVE_VERSION:
 		return null
 	var variant := Variants.by_id(str(data.get("variant", "")))
 	if variant == null:
@@ -127,6 +175,7 @@ static func from_dict(data: Dictionary) -> RefCounted:
 		return null
 	var state := new()
 	state.board = Board.from_givens(variant, givens, solution)
+	state.notes = _to_notes(data.get("notes"), variant)
 	for index in variant.cell_count:
 		if givens[index] != 0:
 			if givens[index] != solution[index] or values[index] != givens[index]:
@@ -138,16 +187,23 @@ static func from_dict(data: Dictionary) -> RefCounted:
 	if moves is Array:
 		for move: Variant in moves:
 			if move is Dictionary and _valid_move(move, variant):
-				state.undo_stack.append({
+				var clean := {
 					"index": int(move["index"]),
 					"previous": int(move["previous"]),
 					"next": int(move["next"]),
-				})
+				}
+				var pairs := _to_note_pairs(move.get("notes"), variant)
+				if not pairs.is_empty():
+					clean["notes"] = pairs
+				state.undo_stack.append(clean)
 	state.difficulty = str(data.get("difficulty", ""))
 	state.puzzle_seed = int(data.get("seed", 0))
 	state.elapsed = maxf(float(data.get("elapsed", 0.0)), 0.0)
 	state.mistakes = maxi(int(data.get("mistakes", 0)), 0)
 	state.hints_used = maxi(int(data.get("hints_used", 0)), 0)
+	for index in variant.cell_count:
+		if state.board.values[index] != 0:
+			state.notes[index] = 0
 	state.solved = Validator.is_solved(state.board)
 	return state
 
@@ -165,6 +221,31 @@ static func _valid_move(move: Dictionary, variant: SudokuVariant) -> bool:
 			return false
 	var digit_ok := func(value: int) -> bool: return value == 0 or variant.is_valid_digit(value)
 	return variant.is_valid_index(int(move["index"])) and digit_ok.call(int(move["previous"])) and digit_ok.call(int(move["next"]))
+
+
+## Notes from a save, or all empty when missing or malformed. Marks on
+## filled cells are dropped.
+static func _to_notes(raw: Variant, variant: SudokuVariant) -> PackedInt32Array:
+	var result := PackedInt32Array()
+	result.resize(variant.cell_count)
+	if not raw is Array or raw.size() != variant.cell_count:
+		return result
+	for index in variant.cell_count:
+		var value: Variant = raw[index]
+		if value is int or value is float:
+			result[index] = int(value) & variant.all_digits_mask()
+	return result
+
+
+static func _to_note_pairs(raw: Variant, variant: SudokuVariant) -> Array:
+	var pairs := []
+	if not raw is Array:
+		return pairs
+	for pair: Variant in raw:
+		if pair is Array and pair.size() == 2 and (pair[0] is int or pair[0] is float) and (pair[1] is int or pair[1] is float):
+			if variant.is_valid_index(int(pair[0])):
+				pairs.append([int(pair[0]), int(pair[1]) & variant.all_digits_mask()])
+	return pairs
 
 
 static func _to_bytes(raw: Variant, expected_size: int) -> PackedByteArray:

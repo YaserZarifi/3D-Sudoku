@@ -132,3 +132,92 @@ func _changed_given(save: Dictionary) -> Array:
 			values[index] = 0
 			break
 	return values
+
+
+func test_toggle_note_and_undo() -> void:
+	var state := _state()
+	var index := _first_empty(state)
+	assert_true(state.toggle_note(index, 3))
+	assert_true(state.toggle_note(index, 5))
+	assert_true(state.has_note(index, 3) and state.has_note(index, 5))
+	assert_true(state.toggle_note(index, 3))
+	assert_false(state.has_note(index, 3))
+	state.undo()
+	assert_true(state.has_note(index, 3))
+	state.undo()
+	state.undo()
+	assert_eq(state.notes[index], 0)
+
+
+func test_notes_only_on_empty_cells() -> void:
+	var state := _state()
+	var index := _first_empty(state)
+	state.place(index, 2)
+	assert_false(state.toggle_note(index, 4))
+	for cell in state.board.variant.cell_count:
+		if state.board.is_given(cell):
+			assert_false(state.toggle_note(cell, 1))
+			break
+	assert_false(state.toggle_note(_first_empty(state), 10))
+
+
+func test_placing_clears_own_and_peer_notes() -> void:
+	var state := _state()
+	var variant := state.board.variant
+	var index := _first_empty(state)
+	var peer := -1
+	var outsider := -1
+	for cell in variant.cell_count:
+		if cell == index or not state.board.is_empty(cell):
+			continue
+		if variant.peers[index].has(cell):
+			peer = cell if peer == -1 else peer
+		elif outsider == -1:
+			outsider = cell
+	state.toggle_note(index, 1)
+	state.toggle_note(peer, 6)
+	state.toggle_note(peer, 7)
+	if outsider != -1:
+		state.toggle_note(outsider, 6)
+	state.place(index, 6)
+	assert_eq(state.notes[index], 0)
+	assert_false(state.has_note(peer, 6))
+	assert_true(state.has_note(peer, 7))
+	if outsider != -1:
+		assert_true(state.has_note(outsider, 6), "cells outside the groups keep their notes")
+	# One undo brings every mark back together with the digit.
+	state.undo()
+	assert_true(state.board.is_empty(index))
+	assert_true(state.has_note(index, 1))
+	assert_true(state.has_note(peer, 6))
+
+
+func test_erase_clears_notes_on_empty_cell() -> void:
+	var state := _state()
+	var index := _first_empty(state)
+	state.toggle_note(index, 2)
+	assert_true(state.place(index, 0))
+	assert_eq(state.notes[index], 0)
+	assert_false(state.place(index, 0), "nothing left to erase")
+	state.undo()
+	assert_true(state.has_note(index, 2))
+
+
+func test_notes_survive_save() -> void:
+	var state := _state()
+	var index := _first_empty(state)
+	state.toggle_note(index, 4)
+	state.toggle_note(index, 8)
+	var restored: GameState = GameState.from_dict(JSON.parse_string(JSON.stringify(state.to_dict())))
+	assert_eq(restored.notes, state.notes)
+	restored.undo()
+	assert_false(restored.has_note(index, 8))
+
+
+func test_reads_version_one_saves() -> void:
+	var save := _state().to_dict()
+	save["version"] = 1
+	save.erase("notes")
+	var restored: GameState = GameState.from_dict(save)
+	assert_true(restored != null)
+	assert_eq(restored.notes.size(), restored.board.variant.cell_count)

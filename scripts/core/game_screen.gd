@@ -31,6 +31,7 @@ func _ready() -> void:
 	_ui.erase_pressed.connect(_on_erase)
 	_ui.undo_pressed.connect(_game.undo)
 	_ui.hint_pressed.connect(_game.hint)
+	_ui.notes_toggled.connect(_game.set_notes_mode)
 	_ui.pause_pressed.connect(_set_paused.bind(true))
 	_ui.resume_pressed.connect(_set_paused.bind(false))
 	_ui.restart_pressed.connect(_on_restart)
@@ -52,6 +53,7 @@ func _ready() -> void:
 	_game.board_changed.connect(_on_board_changed)
 	_game.digit_placed.connect(_on_digit_placed)
 	_game.puzzle_solved.connect(_on_solved)
+	_game.notes_mode_changed.connect(func(_on: bool) -> void: _refresh_pad())
 
 	ThemeManager.theme_changed.connect(_apply_palette)
 	SaveManager.settings_changed.connect(_apply_motion_setting)
@@ -94,6 +96,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event.is_action("erase"):
 		_on_erase()
+	elif event.is_action("toggle_notes"):
+		_game.set_notes_mode(not _game.notes_mode)
 	elif event.is_action("undo"):
 		_game.undo()
 	elif event.is_action("camera_reset"):
@@ -125,6 +129,7 @@ func _on_game_started() -> void:
 	var level: String = _game.state.difficulty.capitalize()
 	_ui.setup(variant.digit_count, "%s · %s" % [variant.display_name, level] if level != "" else variant.display_name)
 	_ui.set_slice(_focus_axis, _focus_layer, variant.size)
+	_refresh_pad()
 	_camera_rig.set_view_area(_ui.board_area())
 
 
@@ -154,7 +159,10 @@ func _on_digit(digit: int) -> void:
 
 
 func _on_erase() -> void:
-	if _game.is_playing() and _game.state.has_selection() and not _game.state.board.is_empty(_game.state.selected):
+	if not _game.is_playing() or not _game.state.has_selection():
+		return
+	var index: int = _game.state.selected
+	if not _game.state.board.is_empty(index) or _game.state.notes[index] != 0:
 		_game.erase()
 		AudioManager.play("erase")
 		HapticsManager.play("light")
@@ -162,6 +170,7 @@ func _on_erase() -> void:
 
 func _on_selection_changed(index: int) -> void:
 	_refresh_board()
+	_refresh_pad()
 	if index >= 0:
 		_assist_view(index)
 
@@ -173,6 +182,7 @@ func _on_board_changed(_changed: PackedInt32Array) -> void:
 		var progress: Vector2i = _game.digit_progress(digit)
 		_ui.set_digit_done(digit, progress.x >= progress.y)
 	_ui.set_undo_enabled(not _game.state.undo_stack.is_empty())
+	_refresh_pad()
 	_save()
 
 
@@ -261,7 +271,24 @@ func _refresh_board() -> void:
 		_board.apply_states(CellStates.compute(state.board, GameState.NO_SELECTION))
 		_board.show_solved()
 		return
-	_board.apply_states(CellStates.compute(state.board, state.selected, _focus_axis, _focus_layer))
+	_board.apply_states(CellStates.compute(state.board, state.selected, _focus_axis, _focus_layer, state.notes))
+
+
+## Lights the pad digits that belong to the selected cell.
+func _refresh_pad() -> void:
+	if not _game.has_game():
+		return
+	var state: GameState = _game.state
+	var active := PackedInt32Array()
+	if state.has_selection():
+		var value := state.board.get_value(state.selected)
+		if value != 0:
+			active.append(value)
+		elif _game.notes_mode:
+			for digit in range(1, state.variant().digit_count + 1):
+				if state.has_note(state.selected, digit):
+					active.append(digit)
+	_ui.set_pad_highlight(active, _game.notes_mode)
 
 
 ## Eases the camera a little toward a selected cell that other cells hide

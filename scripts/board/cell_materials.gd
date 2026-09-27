@@ -17,6 +17,7 @@ var mark_conflict: StandardMaterial3D
 var digit_entry: Color
 var digit_given: Color
 var digit_conflict: Color
+var digit_note: Color
 
 
 func _init(palette: Dictionary) -> void:
@@ -37,6 +38,7 @@ func _init(palette: Dictionary) -> void:
 	digit_entry = accent
 	digit_given = palette["ink"]
 	digit_conflict = palette["conflict"]
+	digit_note = palette["ink_muted"]
 
 
 func _lit(color: Color) -> StandardMaterial3D:

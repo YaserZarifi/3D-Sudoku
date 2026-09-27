@@ -50,3 +50,24 @@ func test_slice_focus_dims_other_layers() -> void:
 	var states := CellStates.compute(board, -1, 2, 1)
 	for index in variant.cell_count:
 		assert_eq(states[index]["is_dimmed"], variant.coord_of(index).z != 1)
+
+
+func test_notes_only_show_on_empty_cells() -> void:
+	var board := _board()
+	board.set_value(5, 3)
+	var notes := PackedInt32Array()
+	notes.resize(board.variant.cell_count)
+	notes[5] = 1 << 2
+	notes[6] = (1 << 1) | (1 << 9)
+	var states := CellStates.compute(board, -1, CellStates.NO_FOCUS, 0, notes)
+	assert_eq(states[5]["notes"], 0)
+	assert_eq(states[6]["notes"], notes[6])
+	assert_eq(CellStates.compute(board, -1)[6]["notes"], 0)
+
+
+func test_notes_text_keeps_digit_positions() -> void:
+	var Cell3D := load("res://scripts/board/cell_3d.gd")
+	var space := " "
+	var text: String = Cell3D.notes_text((1 << 1) | (1 << 5) | (1 << 9), 9, 3)
+	assert_eq(text, "1 %s %s\n%s 5 %s\n%s %s 9" % [space, space, space, space, space, space])
+	assert_eq(Cell3D.notes_text(1 << 2, 3, 3), "%s 2 %s" % [space, space])

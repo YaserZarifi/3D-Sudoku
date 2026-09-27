@@ -40,7 +40,7 @@ func build(board_variant: SudokuVariant, palette: Dictionary, fonts: Dictionary 
 	for index in variant.cell_count:
 		var cell := Cell3D.new()
 		cell.name = "Cell%d" % index
-		cell.setup(index, _body_mesh, fonts)
+		cell.setup(index, _body_mesh, fonts, variant.digit_count, variant.size)
 		cell.reduced_motion = reduced_motion
 		add_child(cell)
 		cells.append(cell)

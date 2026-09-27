@@ -10,7 +10,8 @@ const NO_FOCUS := -1
 
 ## focus_axis is 0, 1 or 2 for x, y or z, or NO_FOCUS. Cells outside the
 ## focused layer are dimmed.
-static func compute(board: Board, selected: int, focus_axis: int = NO_FOCUS, focus_layer: int = 0) -> Array[Dictionary]:
+## notes holds a pencil-mark bitmask per cell, or is empty.
+static func compute(board: Board, selected: int, focus_axis: int = NO_FOCUS, focus_layer: int = 0, notes: PackedInt32Array = PackedInt32Array()) -> Array[Dictionary]:
 	var variant := board.variant
 	var conflicts := {}
 	for index in Validator.conflicts(board):
@@ -36,5 +37,6 @@ static func compute(board: Board, selected: int, focus_axis: int = NO_FOCUS, foc
 			"is_same_digit": selected_digit != 0 and digit == selected_digit and index != selected,
 			"is_conflict": conflicts.has(index),
 			"is_dimmed": dimmed,
+			"notes": notes[index] if digit == 0 and index < notes.size() else 0,
 		})
 	return states

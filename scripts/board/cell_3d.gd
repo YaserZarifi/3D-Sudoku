@@ -11,6 +11,8 @@ const MARK_SIZE := 0.16
 const POP_SCALE := 1.18
 const SHAKE_DISTANCE := 0.06
 const SHAKE_STEPS := 4
+## Same width as a digit in a tabular font, so note columns line up.
+const FIGURE_SPACE := "\u2007"
 
 var index: int = -1
 var home_position := Vector3.ZERO
@@ -22,6 +24,9 @@ var _body: MeshInstance3D
 var _outline: MeshInstance3D
 var _mark: MeshInstance3D
 var _label: Label3D
+var _notes: Label3D
+var _digit_count := 9
+var _notes_per_row := 3
 var _target_scale := 1.0
 var _font_entry: Font
 var _font_given: Font
@@ -30,8 +35,10 @@ var _shake_tween: Tween
 
 
 ## fonts may hold "entry" and "given"; missing ones use Godot's default.
-func setup(cell_index: int, body_mesh: Mesh, fonts: Dictionary) -> void:
+func setup(cell_index: int, body_mesh: Mesh, fonts: Dictionary, digit_count: int = 9, notes_per_row: int = 3) -> void:
 	index = cell_index
+	_digit_count = digit_count
+	_notes_per_row = notes_per_row
 	_visual = Node3D.new()
 	add_child(_visual)
 
@@ -65,6 +72,18 @@ func setup(cell_index: int, body_mesh: Mesh, fonts: Dictionary) -> void:
 	if _font_entry != null:
 		_label.font = _font_entry
 	add_child(_label)
+
+	_notes = Label3D.new()
+	_notes.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_notes.font_size = ThemeTokens.NOTE_FONT_SIZE
+	_notes.pixel_size = ThemeTokens.DIGIT_PIXEL_SIZE
+	_notes.line_spacing = ThemeTokens.NOTE_LINE_SPACING
+	_notes.double_sided = true
+	_notes.shaded = false
+	_notes.outline_size = 0
+	if _font_entry != null:
+		_notes.font = _font_entry
+	add_child(_notes)
 
 
 func apply_state(new_state: Dictionary, materials: CellMaterials) -> void:
@@ -116,6 +135,12 @@ func apply_state(new_state: Dictionary, materials: CellMaterials) -> void:
 	_label.outline_size = ThemeTokens.DIGIT_BOLD_OUTLINE if bold else 0
 	_label.outline_modulate = color
 
+	var note_mask: int = state.get("notes", 0)
+	_notes.visible = note_mask != 0 and not dimmed
+	if _notes.visible:
+		_notes.text = notes_text(note_mask, _digit_count, _notes_per_row)
+		_notes.modulate = materials.digit_note
+
 	var scale_goal := 1.0
 	if dimmed:
 		scale_goal = ThemeTokens.DIMMED_SCALE
@@ -151,6 +176,20 @@ func face_direction(direction: Vector3) -> void:
 	var half := ThemeTokens.CELL_SIZE * 0.5 * _visual.scale.x
 	var support := half * (absf(direction.x) + absf(direction.y) + absf(direction.z))
 	_label.position = direction * (support + LABEL_MARGIN)
+	_notes.position = _label.position
+
+
+## Pencil marks laid out in a grid, with gaps where a digit isn't noted,
+## so each digit always sits in the same spot.
+static func notes_text(mask: int, digit_count: int, per_row: int) -> String:
+	var rows := PackedStringArray()
+	var row := PackedStringArray()
+	for digit in range(1, digit_count + 1):
+		row.append(str(digit) if mask & (1 << digit) != 0 else FIGURE_SPACE)
+		if row.size() == per_row or digit == digit_count:
+			rows.append(" ".join(row))
+			row = PackedStringArray()
+	return "\n".join(rows)
 
 
 func pop() -> void:

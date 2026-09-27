@@ -13,9 +13,12 @@ signal board_changed(changed_indices: PackedInt32Array)
 ## A digit was placed. `conflict` is true when it broke a rule.
 signal digit_placed(index: int, conflict: bool)
 signal puzzle_solved
+signal notes_mode_changed(enabled: bool)
 
 var state: GameState
 var paused := false
+## When on, digits toggle pencil marks instead of being placed.
+var notes_mode := false
 
 
 func new_game(variant_id: String, difficulty: String, puzzle_seed: int = -1) -> void:
@@ -65,10 +68,21 @@ func deselect() -> void:
 	select_index(GameState.NO_SELECTION)
 
 
+func set_notes_mode(enabled: bool) -> void:
+	if notes_mode == enabled:
+		return
+	notes_mode = enabled
+	notes_mode_changed.emit(enabled)
+
+
 func enter_digit(digit: int) -> void:
 	if not is_playing() or not state.has_selection():
 		return
 	var index := state.selected
+	if notes_mode and state.board.is_empty(index):
+		if state.toggle_note(index, digit):
+			board_changed.emit(PackedInt32Array([index]))
+		return
 	if not state.place(index, digit):
 		return
 	var conflict := Validator.is_conflict(state.board, index)
@@ -80,6 +94,7 @@ func enter_digit(digit: int) -> void:
 func erase() -> void:
 	if not is_playing() or not state.has_selection():
 		return
+	# Erasing an empty cell clears its pencil marks, which place() handles.
 	if state.place(state.selected, 0):
 		board_changed.emit(PackedInt32Array([state.selected]))
 
