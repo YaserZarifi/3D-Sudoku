@@ -58,11 +58,24 @@ Each slice holds 1 to 9 exactly once. Every line lies inside a slice, so no line
 
 Every digit appears exactly 3 times in a solved cube, once in each x slice, each y slice and each z slice. So the three cells holding a given digit never share a coordinate.
 
-**Solutions exist.** For each pair `(s, t)` with `s, t` in `0..2`, the three cells `(i, (i + s) mod 3, (i + t) mod 3)` for `i = 0, 1, 2` never share a coordinate. The 9 pairs split the 27 cells into 9 disjoint triples. Give each triple its own digit and you get a solved cube. The generator starts from a construction like this, then shuffles it by permuting digits, permuting each axis and swapping axes (all of these keep the board solved), then removes givens.
+**Solutions exist.** For each pair `(s, t)` with `s, t` in `0..2`, the three cells `(i, (i + s) mod 3, (i + t) mod 3)` for `i = 0, 1, 2` never share a coordinate. The 9 pairs split the 27 cells into 9 disjoint triples. Give each triple its own digit and you get a solved cube. A test checks this construction. The generator doesn't need it, though: it fills an empty cube with the solver, using a seeded digit order and a seeded tie-break between cells, which gives varied solutions for any tier.
 
-**Things to confirm during Milestone 2:**
-- How many givens it takes to get a unique solution at each difficulty.
-- Whether any puzzles need guessing (backtracking) rather than pure deduction. Those should be rated Expert or thrown away.
+## Difficulty
+
+Measured in Milestone 2 with 40 seeds per level (Godot 4.5.1, desktop).
+
+| Tier | Level | Givens | Rating | Generation time |
+|---|---|---|---|---|
+| Latin Cube | Easy | 14 | naked singles only | ~1 ms |
+| Latin Cube | Medium | 10 | naked singles only | ~1 ms |
+| Latin Cube | Hard | 6 | naked singles only | ~20 ms |
+| Slice Sudoku | Easy | 16 | naked singles only | ~2 ms |
+| Slice Sudoku | Medium | 13 | about a third need hidden singles | ~3 ms |
+| Slice Sudoku | Hard | 10 | always needs hidden singles, never guessing | ~5 ms, worst 12 ms |
+
+- The smallest unique Latin Cube puzzles have 3 givens. The smallest Slice Sudoku puzzles have 8 to 10.
+- Around half of the minimal Slice Sudoku puzzles need guessing. Those are rated Expert and the generator never hands them out: every level retries until the puzzle is solvable by singles alone.
+- Latin Cube puzzles never need hidden singles, so its Hard level is simply fewer givens.
 
 ## Tier 3 and later (not built yet)
 
