@@ -8,7 +8,7 @@ const DEFAULT_YAW := deg_to_rad(32.0)
 const DEFAULT_PITCH := deg_to_rad(-24.0)
 const PITCH_LIMIT := deg_to_rad(70.0)
 ## Radians of rotation per canvas pixel of drag.
-const ORBIT_SENSITIVITY := 0.0065
+const ORBIT_SENSITIVITY := 0.005
 ## Inertia velocity decays by this factor per second.
 const INERTIA_DAMPING := 7.0
 const INERTIA_MIN_SPEED := 0.05
