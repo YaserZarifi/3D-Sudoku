@@ -1,0 +1,23 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          bash scripts/tools/setup_godot.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Import project
+        run: godot --headless --path . --import
+
+      - name: Run tests
+        run: godot --headless --path . -s tests/run_tests.gd
