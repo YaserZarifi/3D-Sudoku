@@ -56,17 +56,30 @@ Left for a real phone: confirm the feel of orbit speed, inertia and tap threshol
 - Completion: a success-colored wave across the cube, a slow spin, then a summary with time, mistakes, hints and best time
 - Menu with a slowly turning solved cube
 
-Left: pick a custom font with clear tabular numerals (the default Godot font is used for now) and an app icon.
+Second pass (done):
+- Inter (SIL Open Font License) with tabular figures, bold givens on the cube, rounded modern theme with hairline borders and soft shadows
+- Press feedback on every button, fades between screens and sheets, a clean splash, 2x MSAA on the cube
+- New app icon
+
+## 7b. Features (done)
+
+- Pencil marks with a Notes toggle. Placing a digit clears it from the notes of every peer, and one undo restores it all
+- Daily puzzle (Slice Sudoku, Medium, seeded by the local date) with a streak
+- Statistics sheet: played, solved, best and average time per tier and level, daily streak
+- Guided tutorial on a fixed Latin Cube, offered on first launch
+- Menu with Continue, New Game, Daily, Stats, How to play and Settings
 
 ## 7. Persistence (done)
 
 `SaveManager` writes settings, statistics and the active puzzle to `user://save.json` after every move, through a temp file. A corrupt save is moved to `save.corrupt.json` and the game starts from defaults. Restored games are fully validated before use.
 
-## 8. Mobile builds (in progress)
+## 8. Mobile builds (Android done)
 
 Done:
 - Android and iOS export presets (`export_presets.cfg`), portrait, vibrate permission, no internet permission
 - Build steps in the README
+- GitHub Actions: tests on every push, and a release workflow that builds and signs the APK and publishes it with notes from `docs/releases/`
+- Performance: digit labels only move when the camera or a cell moves, the timer label updates once a second, saves are batched and flushed on pause or exit
 
 Left (needs a real machine and devices):
 - Install Android export templates and SDK, export a debug APK and test on a mid-range phone

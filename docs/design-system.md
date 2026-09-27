@@ -28,13 +28,15 @@ Contrast target: 4.5:1 for text and 3:1 for state outlines, checked in both them
 
 ## Typography
 
-One sans family (still to be picked; it needs clear tabular numerals, where 1 and 7 are easy to tell apart). Godot's default font is used until then. On the cube, bold is drawn as an outline in the digit's own color. Scale: 12, 14, 16, 20, 28, 40. Givens use a heavier weight than entries. Digit glyphs on the cube are rendered from the same font.
+Inter (Regular, SemiBold, Bold), bundled in `assets/fonts/` under the SIL Open Font License. Tabular figures are switched on, so timers and digits don't shift. Buttons use SemiBold, titles Bold. On the cube, givens use Bold and entries SemiBold, and same-digit matches get an outline in their own color to look heavier. Scale: 12, 14, 16, 20, 28, 40. Givens use a heavier weight than entries. Digit glyphs on the cube are rendered from the same font.
 
 ## Spacing and shape
 
 - Spacing steps: 4, 8, 12, 16, 24, 32
-- Corner radius: 8 for buttons, 12 for panels. Cells get a small bevel, not a round shape.
+- Corner radius: 14 for buttons, 22 for panels. Cells get a small bevel, not a round shape.
+- Borders: a 1 dp hairline (`hairline` token) on light surfaces
 - Elevation: at most two levels, drawn with soft shadow on panels only
+- Press feedback: buttons shrink to 95% while held
 
 ## Motion
 

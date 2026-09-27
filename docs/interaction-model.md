@@ -64,6 +64,18 @@ Placing a digit gives a light haptic tap and a short scale pop. A conflict gives
 - Erase clears the selected entry. Undo reverts the last move, including erases.
 - Hint fills the selected cell from the solution, or the first wrong or empty cell when nothing useful is selected. Hints are counted on the result screen.
 
+## Pencil marks
+
+Notes sits between Erase and Hint. While it's on, digit buttons toggle small candidates in the selected empty cell instead of placing a digit, and the pad shows lighter digits so the mode is obvious. The pad highlights the selected cell's entry, or its notes in notes mode. Notes are laid out in a fixed grid (1 2 3 on the top row), so a digit is always in the same spot. Erase on an empty cell clears its notes.
+
+## Tutorial
+
+A coach card sits at the top of the board area and the cube frames itself below it. Steps: turn the cube, select a cell, place a fitting digit (a wrong one gets a gentle retry message), try slice view, turn on Notes, then finish the cube. Skip ends it at any point. It's offered as the main action on the menu until it's been finished or skipped once.
+
+## Menu
+
+Continue is the main action when a game is saved. Below it: tier and level choice, New Game, then Daily, Stats, How to play and Settings. Stats and Settings open as sheets. The Android back button closes an open sheet, then leaves the app.
+
 ## Keyboard (desktop testing)
 
-1 to 9 enter digits, Backspace or Delete erases, Ctrl+Z undoes, R resets the view. A mouse drag orbits and the wheel zooms, because mouse input is emulated as touch.
+1 to 9 enter digits, Backspace or Delete erases, Ctrl+Z undoes, N toggles notes, R resets the view. A mouse drag orbits and the wheel zooms, because mouse input is emulated as touch.

@@ -80,4 +80,12 @@ Every generated puzzle is checked with the solver before it's returned. With a s
 
 A mistake is counted each time an entry breaks a rule when it's placed.
 
-`GameState.to_dict()` and `from_dict()` are the save format (version 1): variant id, difficulty, seed, givens, values, solution, undo stack, elapsed, mistakes, hints. `from_dict()` rejects anything inconsistent: unknown variant, wrong array sizes, a solution that isn't solved, givens that don't match the solution, or entries outside the digit range. The caller then starts fresh.
+Pencil marks are a bitmask per cell in `GameState.notes`. A move that changes notes carries `"notes": [[cell, old mask], ...]`, so a single undo restores a placed digit together with every mark it cleared.
+
+`mode` is `classic`, `daily` or `tutorial`. Daily games also store their `date`.
+
+`GameState.to_dict()` and `from_dict()` are the save format (version 2, which still reads version 1): variant id, difficulty, mode, date, seed, givens, values, solution, notes, undo stack, elapsed, mistakes, hints. `from_dict()` rejects anything inconsistent: unknown variant, wrong array sizes, a solution that isn't solved, givens that don't match the solution, or entries outside the digit range. The caller then starts fresh.
+
+## Save file
+
+`SaveData` (in `scripts/core/`) owns the rest of `user://save.json`: settings, statistics (`played`, `solved`, `best_time`, `total_time` per `<variant>/<difficulty>`, plus `daily`), the daily streak (`last_date`, `streak`, `best_streak`) and the active game. Every field is checked on load and falls back to its default.

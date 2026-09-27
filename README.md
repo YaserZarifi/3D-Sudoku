@@ -9,6 +9,10 @@ There are two tiers:
 
 The full rules are in [docs/game-rules.md](docs/game-rules.md). The plan and what's left are in [docs/roadmap.md](docs/roadmap.md).
 
+## Installing on Android
+
+Grab the latest APK from the [Releases page](https://github.com/YaserZarifi/3D-Sudoku/releases), open it on your phone and allow installs from your browser or file manager when Android asks.
+
 ## Running it on your computer
 
 1. Install Godot 4.5 or newer, the standard build (not .NET): https://godotengine.org/download
@@ -37,6 +41,7 @@ godot --path .               # runs the game
 | Enter a digit | **1** to **9**, or the number pad |
 | Erase | **Backspace** or **Delete** |
 | Undo | **Ctrl+Z** or the Undo button |
+| Pencil marks | **N** or the Notes button |
 | Show one slice | **X**, **Y** or **Z** buttons. Tap again for the next slice, then off |
 
 ## Running the tests
@@ -48,7 +53,7 @@ godot --headless --path . --import
 godot --headless --path . -s tests/run_tests.gd
 ```
 
-The first command only needs to run once after cloning. The last line should read `55 passed, 0 failed`.
+The first command only needs to run once after cloning. The last line should read `72 passed, 0 failed`.
 
 ## Trying it on an Android phone
 
@@ -62,16 +67,35 @@ Release signing details go in `export_credentials.cfg`, which Godot keeps out of
 
 iOS needs a Mac with Xcode. Set your team ID in the iOS preset and export an Xcode project from there.
 
+## Publishing a release
+
+`.github/workflows/android-release.yml` builds, signs and publishes the APK. Write the notes in `docs/releases/vX.Y.Z.md`, then push a tag with the same name:
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+You can also start it from the Actions tab with a version. To sign every release with the same key (so updates install over old versions), create a keystore once and add three repository secrets: `ANDROID_KEYSTORE_BASE64` (the keystore file, base64 encoded), `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS`.
+
+```bash
+keytool -genkeypair -keystore release.keystore -alias sudoku3d -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 release.keystore   # paste the output into ANDROID_KEYSTORE_BASE64
+```
+
+Keep that keystore safe and never commit it.
+
 ## Where things are
 
 ```
 scripts/sudoku/    engine: variants, board, validator, solver, generator (pure logic)
-scripts/core/      game state, game manager, save format, scene scripts
+scripts/core/      game state, game manager, save format, tutorial, scene scripts
 scripts/board/     3D cube and cells
 scripts/camera/    orbit camera
 scripts/input/     touch gestures
 scripts/ui/        theme tokens, HUD, number pad, menu
 scripts/services/  autoloads: save, theme, haptics, audio
+assets/fonts/      Inter (SIL Open Font License)
 scenes/            main router, menu, game
 tests/             headless tests
 docs/              rules, data model, architecture, interaction, design, roadmap
