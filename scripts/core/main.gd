@@ -4,6 +4,7 @@ extends Node
 const ThemeTokens := preload("res://scripts/ui/theme_tokens.gd")
 const MenuScene := preload("res://scenes/menu/menu.tscn")
 const GameScene := preload("res://scenes/game/game.tscn")
+const IntroScreen := preload("res://scripts/ui/intro_screen.gd")
 
 ## Above every screen, so the fade covers the swap.
 const FADE_LAYER := 100
@@ -22,7 +23,10 @@ func _ready() -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_fade)
 	_fade.color = ThemeManager.color("bg")
-	show_menu()
+	if SaveManager.get_setting("intro_seen"):
+		show_menu()
+	else:
+		show_intro()
 	_fade_to(0.0)
 
 
@@ -36,7 +40,7 @@ func show_menu() -> void:
 	menu.new_game_requested.connect(_start_game)
 	menu.resume_requested.connect(_resume_game)
 	menu.daily_requested.connect(_open_and.bind("start_daily"))
-	menu.tutorial_requested.connect(_open_and.bind("start_tutorial"))
+	menu.tutorial_requested.connect(show_intro)
 	_swap(menu)
 	if _busy:
 		_busy = false
@@ -52,6 +56,29 @@ func _start_game(variant_id: String, difficulty: String) -> void:
 	game.start_new(variant_id, difficulty)
 	_busy = false
 	_fade_to(0.0)
+
+
+## The how-to-play cards. Shown by itself on first launch.
+func show_intro() -> void:
+	if _screen != null:
+		if _busy:
+			return
+		_busy = true
+		await _fade_to(1.0)
+	var intro := IntroScreen.new()
+	intro.finished.connect(_on_intro_finished)
+	_swap(intro)
+	if _busy:
+		_busy = false
+		_fade_to(0.0)
+
+
+func _on_intro_finished(practice: bool) -> void:
+	SaveManager.set_setting("intro_seen", true)
+	if practice:
+		_open_and("start_tutorial")
+	else:
+		show_menu()
 
 
 ## Fades to a fresh game scene and calls one of its start methods.

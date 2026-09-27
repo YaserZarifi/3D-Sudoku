@@ -10,6 +10,7 @@ const CellStates := preload("res://scripts/board/cell_states.gd")
 ## Turns per second of the idle spin.
 const SPIN_SPEED := 0.03
 const DEMO_SEED := 7
+const MIN_CUBE_AREA_DP := 90
 
 signal new_game_requested(variant_id: String, difficulty: String)
 signal resume_requested
@@ -22,6 +23,7 @@ signal tutorial_requested
 @onready var _menu: Control = $UI/Menu
 
 var _demo: Board
+var _last_area := Rect2()
 
 
 func _ready() -> void:
@@ -29,7 +31,6 @@ func _ready() -> void:
 	_menu.resume_requested.connect(resume_requested.emit)
 	_menu.daily_requested.connect(daily_requested.emit)
 	_menu.tutorial_requested.connect(tutorial_requested.emit)
-	_menu.open_area_changed.connect(_camera_rig.set_view_area)
 	ThemeManager.theme_changed.connect(_apply_palette)
 	var variant := Variants.slice_sudoku(3)
 	var puzzle := Generator.generate(variant, "easy", DEMO_SEED)
@@ -39,7 +40,21 @@ func _ready() -> void:
 	_camera_rig.frame_board(_board.extent())
 
 
+## The cube only shows where the menu leaves enough room for it. Polled,
+## because page switches and layout changes settle over a few frames.
+func _follow_open_area() -> void:
+	var area: Rect2 = _menu.open_area()
+	if area == _last_area:
+		return
+	_last_area = area
+	var roomy := area.size.y >= ThemeTokens.dp(MIN_CUBE_AREA_DP)
+	_board.visible = roomy
+	if roomy:
+		_camera_rig.set_view_area(area)
+
+
 func _process(delta: float) -> void:
+	_follow_open_area()
 	if not ThemeManager.reduced_motion():
 		_board.rotate_y(TAU * SPIN_SPEED * delta)
 

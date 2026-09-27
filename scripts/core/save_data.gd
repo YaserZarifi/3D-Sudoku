@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS := {
 	"last_variant": "slice_sudoku_3",
 	"last_difficulty": "easy",
 	"tutorial_done": false,
+	"intro_seen": false,
 }
 
 const DAILY_KEY := "daily"

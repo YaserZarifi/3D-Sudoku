@@ -1,6 +1,7 @@
 extends Control
-## Start screen: continue, a new game by tier and level, the daily puzzle,
-## how to play, statistics and settings.
+## Start screen with two pages. Home: one big Play (or Continue), the daily
+## puzzle, and small links to How to play, Stats and Settings. Picker: choose
+## a tier and a level, then Start.
 
 const ThemeTokens := preload("res://scripts/ui/theme_tokens.gd")
 const Variants := preload("res://scripts/sudoku/variants.gd")
@@ -9,9 +10,15 @@ const SaveData := preload("res://scripts/core/save_data.gd")
 const UiKit := preload("res://scripts/ui/ui_kit.gd")
 const GameUi := preload("res://scripts/ui/game_ui.gd")
 
-const TIER_RULES := {
-	"latin_cube_3": "Every line holds 1, 2 and 3 once.",
-	"slice_sudoku_3": "Every slice holds 1 to 9 once.",
+const TIERS := {
+	"latin_cube_3": {
+		"title": "Latin Cube",
+		"body": "Digits 1 to 3. Every line through the cube holds each once. Quick and gentle.",
+	},
+	"slice_sudoku_3": {
+		"title": "Slice Sudoku",
+		"body": "Digits 1 to 9. Every slice of the cube holds each once. The main game.",
+	},
 }
 const SETTINGS: Array[Array] = [
 	["sound", "Sound"],
@@ -20,25 +27,27 @@ const SETTINGS: Array[Array] = [
 	["dark_mode", "Dark mode"],
 ]
 const STATS_COLUMNS: PackedStringArray = ["", "Played", "Solved", "Best", "Average"]
+const TIER_CARD_DP := 96
 
 signal new_game_requested(variant_id: String, difficulty: String)
 signal resume_requested
 signal daily_requested
 signal tutorial_requested
-## The empty part of the screen where the decorative cube can sit.
-signal open_area_changed(area: Rect2)
 
 var _variant_id: String
 var _difficulty: String
 var _margin: MarginContainer
-var _rules: Label
-var _resume: Button
-var _resume_detail: Label
-var _new_game: Button
+var _home: VBoxContainer
+var _picker: VBoxContainer
+var _home_spacer: Control
+var _picker_spacer: Control
+var _play: Button
+var _play_detail: Label
+var _new_puzzle: Button
 var _daily: Button
-var _tutorial: Button
+var _daily_detail: Label
 var _record: Label
-var _tier_buttons: Dictionary = {}
+var _tier_cards: Dictionary = {}
 var _level_buttons: Dictionary = {}
 var _setting_buttons: Dictionary = {}
 var _settings_sheet: Dictionary
@@ -61,63 +70,31 @@ func _ready() -> void:
 	_apply_theme()
 	_update_safe_area()
 	_refresh()
+	_show_page(_home)
 
 
 func _notification(what: int) -> void:
-	# The back button closes an open sheet before it leaves the app.
-	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _close_sheets():
-		get_viewport().set_input_as_handled()
+	# Back closes a sheet, then the picker, before it leaves the app.
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and is_inside_tree():
+		if not _close_sheets() and _picker.visible:
+			_show_page(_home)
 
 
+## True while back should stay inside the menu instead of quitting.
 func has_open_sheet() -> bool:
-	return _settings_sheet["root"].visible or _stats_sheet["root"].visible
+	return _settings_sheet["root"].visible or _stats_sheet["root"].visible or _picker.visible
 
 
 func _build() -> void:
 	_margin = MarginContainer.new()
 	_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_margin)
-	var column := VBoxContainer.new()
-	_margin.add_child(column)
-
-	var title := UiKit.label("3D Sudoku", "TitleLabel")
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(title)
-	_rules = UiKit.label("", "MutedLabel")
-	_rules.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(_rules)
-
-	# Keeps the upper part of the screen free for the turning cube.
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spacer.resized.connect(func() -> void: open_area_changed.emit(spacer.get_global_rect()))
-	column.add_child(spacer)
-
-	_resume = UiKit.button("Continue", "AccentButton")
-	_resume.pressed.connect(resume_requested.emit)
-	column.add_child(_resume)
-	_resume_detail = UiKit.label("", "CaptionLabel")
-	_resume_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(_resume_detail)
-
-	column.add_child(_segmented(Variants.all_ids(), _tier_buttons, _pick_tier, func(id: String) -> String: return Variants.by_id(id).display_name))
-	column.add_child(_segmented(Generator.DIFFICULTIES, _level_buttons, _pick_level, func(level: String) -> String: return level.capitalize()))
-
-	_new_game = UiKit.button("New Game", "AccentButton")
-	_new_game.pressed.connect(func() -> void: new_game_requested.emit(_variant_id, _difficulty))
-	column.add_child(_new_game)
-	_record = UiKit.label("", "CaptionLabel")
-	_record.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(_record)
-
-	var extras := GridContainer.new()
-	extras.columns = 2
-	column.add_child(extras)
-	_daily = _grid_button(extras, "Daily", daily_requested.emit)
-	_grid_button(extras, "Stats", _open_stats)
-	_tutorial = _grid_button(extras, "How to play", tutorial_requested.emit)
-	_grid_button(extras, "Settings", _open_settings)
+	var pages := Control.new()
+	_margin.add_child(pages)
+	_home = _page(pages)
+	_picker = _page(pages)
+	_build_home()
+	_build_picker()
 
 	_settings_sheet = UiKit.sheet(self, "Settings")
 	var settings_box: VBoxContainer = _settings_sheet["box"]
@@ -136,25 +113,146 @@ func _build() -> void:
 	_stats_sheet["box"].add_child(_close_button(_stats_sheet))
 
 
-func _segmented(keys: PackedStringArray, store: Dictionary, on_pick: Callable, caption: Callable) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", ThemeTokens.space(1))
-	for key in keys:
-		var option := UiKit.button(caption.call(key), "ToggleButton")
+func _page(parent: Control) -> VBoxContainer:
+	var page := VBoxContainer.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page.add_theme_constant_override("separation", ThemeTokens.space(2))
+	parent.add_child(page)
+	return page
+
+
+func _build_home() -> void:
+	var title := UiKit.label("3D Sudoku", "TitleLabel")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_home.add_child(title)
+	var tagline := UiKit.label("Sudoku on a cube you can turn.", "MutedLabel")
+	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_home.add_child(tagline)
+	_home_spacer = _open_area(_home)
+
+	_play = UiKit.button("Play", "AccentButton")
+	_play.custom_minimum_size.y = ThemeTokens.dp(ThemeTokens.MIN_BUTTON_DP * 1.3)
+	_play.add_theme_font_size_override("font_size", ThemeTokens.font_size("xl"))
+	_play.pressed.connect(_on_play)
+	_home.add_child(_play)
+	_play_detail = UiKit.label("", "CaptionLabel")
+	_play_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_home.add_child(_play_detail)
+	_new_puzzle = UiKit.button("New puzzle", "Button")
+	_new_puzzle.pressed.connect(_show_page.bind(_picker))
+	_home.add_child(_new_puzzle)
+
+	var daily_card := _card_button("Daily puzzle", "", "Button")
+	_daily = daily_card["button"]
+	_daily_detail = daily_card["body"]
+	_daily.pressed.connect(daily_requested.emit)
+	_home.add_child(_daily)
+
+	var links := HBoxContainer.new()
+	links.add_theme_constant_override("separation", ThemeTokens.space(1))
+	_home.add_child(links)
+	for link: Array in [["How to play", tutorial_requested.emit], ["Stats", _open_stats], ["Settings", _open_settings]]:
+		var button := UiKit.button(link[0], "GhostButton")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_size_override("font_size", ThemeTokens.font_size("md"))
+		button.pressed.connect(link[1])
+		links.add_child(button)
+
+
+func _build_picker() -> void:
+	var header := HBoxContainer.new()
+	_picker.add_child(header)
+	var back := UiKit.button("Back", "GhostButton")
+	back.pressed.connect(_show_page.bind(_home))
+	header.add_child(back)
+	var heading := UiKit.label("Choose a puzzle", "HeadingLabel")
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_child(heading)
+	# Balances the Back button so the heading stays centered.
+	var balance := Control.new()
+	balance.custom_minimum_size = back.get_combined_minimum_size()
+	header.add_child(balance)
+	_picker_spacer = _open_area(_picker)
+
+	for variant_id in Variants.all_ids():
+		var info: Dictionary = TIERS.get(variant_id, {"title": variant_id, "body": ""})
+		var card := _card_button(info["title"], info["body"], "ToggleButton")
+		var button: Button = card["button"]
+		button.toggle_mode = true
+		button.pressed.connect(_pick_tier.bind(variant_id))
+		_picker.add_child(button)
+		_tier_cards[variant_id] = card
+
+	var level_caption := UiKit.label("Difficulty", "CaptionLabel")
+	_picker.add_child(level_caption)
+	var levels := HBoxContainer.new()
+	levels.add_theme_constant_override("separation", ThemeTokens.space(1))
+	_picker.add_child(levels)
+	for difficulty in Generator.DIFFICULTIES:
+		var option := UiKit.button(difficulty.capitalize(), "ToggleButton")
 		option.toggle_mode = true
 		option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		option.pressed.connect(on_pick.bind(key))
-		row.add_child(option)
-		store[key] = option
-	return row
+		option.pressed.connect(_pick_level.bind(difficulty))
+		levels.add_child(option)
+		_level_buttons[difficulty] = option
+
+	_record = UiKit.label("", "CaptionLabel")
+	_record.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_picker.add_child(_record)
+	var start := UiKit.button("Start", "AccentButton")
+	start.custom_minimum_size.y = ThemeTokens.dp(ThemeTokens.MIN_BUTTON_DP * 1.3)
+	start.add_theme_font_size_override("font_size", ThemeTokens.font_size("xl"))
+	start.pressed.connect(func() -> void: new_game_requested.emit(_variant_id, _difficulty))
+	_picker.add_child(start)
 
 
-func _grid_button(grid: GridContainer, text: String, action: Callable) -> Button:
-	var button := UiKit.button(text, "Button")
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(action)
-	grid.add_child(button)
-	return button
+func _open_area(page: VBoxContainer) -> Control:
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(spacer)
+	return spacer
+
+
+## The empty part of the current page, where the decorative cube can sit.
+func open_area() -> Rect2:
+	return (_home_spacer if _home.visible else _picker_spacer).get_global_rect()
+
+
+## A tall button with a title and a line of explanation under it.
+## Returns {"button", "title", "body"}.
+func _card_button(title: String, body: String, variation: String) -> Dictionary:
+	var button := UiKit.button("", variation)
+	button.custom_minimum_size.y = ThemeTokens.dp(TIER_CARD_DP)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, ThemeTokens.space(4))
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 0)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(box)
+	var title_label := UiKit.label(title, "")
+	title_label.add_theme_font_override("font", ThemeManager.font_semibold)
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(title_label)
+	var body_label := UiKit.label(body, "CaptionLabel")
+	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(body_label)
+	return {"button": button, "title": title_label, "body": body_label}
+
+
+func _show_page(page: VBoxContainer) -> void:
+	_home.visible = page == _home
+	_picker.visible = page == _picker
+	UiKit.fade_in(page, ThemeManager.reduced_motion())
+
+
+func _on_play() -> void:
+	if SaveManager.has_game():
+		resume_requested.emit()
+	else:
+		_show_page(_picker)
 
 
 func _close_button(sheet: Dictionary) -> Button:
@@ -193,22 +291,35 @@ func _pick_level(difficulty: String) -> void:
 
 func _refresh() -> void:
 	var has_game := SaveManager.has_game()
-	_resume.visible = has_game
-	_resume_detail.visible = has_game
+	_play.text = "Continue" if has_game else "Play"
+	_play_detail.visible = has_game
+	_new_puzzle.visible = has_game
 	if has_game:
-		_resume_detail.text = _describe_saved(SaveManager.get_game())
-	# One primary action at a time: Continue when there's a game to go back to.
-	_new_game.theme_type_variation = "Button" if has_game else "AccentButton"
-	var first_time: bool = not SaveManager.get_setting("tutorial_done")
-	_tutorial.theme_type_variation = "AccentButton" if first_time and not has_game else "Button"
+		_play_detail.text = _describe_saved(SaveManager.get_game())
 
-	for variant_id: String in _tier_buttons:
-		(_tier_buttons[variant_id] as Button).set_pressed_no_signal(variant_id == _variant_id)
+	var today := SaveData.today()
+	var daily := SaveManager.daily()
+	var streak := SaveData.current_streak(daily, today)
+	var done := SaveData.solved_today(daily, today)
+	_daily.disabled = done
+	if done:
+		_daily_detail.text = "Done for today. Streak %d, come back tomorrow." % streak
+	elif streak > 0:
+		_daily_detail.text = "Today's Slice Sudoku. Keep your %d day streak going." % streak
+	else:
+		_daily_detail.text = "One new Slice Sudoku every day."
+
+	for variant_id: String in _tier_cards:
+		var card: Dictionary = _tier_cards[variant_id]
+		var chosen := variant_id == _variant_id
+		(card["button"] as Button).set_pressed_no_signal(chosen)
+		var ink := ThemeManager.color("accent_ink") if chosen else ThemeManager.color("ink")
+		(card["title"] as Label).add_theme_color_override("font_color", ink)
+		(card["body"] as Label).add_theme_color_override("font_color", Color(ink, 0.8) if chosen else ThemeManager.color("ink_muted"))
 	for difficulty: String in _level_buttons:
 		(_level_buttons[difficulty] as Button).set_pressed_no_signal(difficulty == _difficulty)
 	for key: String in _setting_buttons:
 		(_setting_buttons[key] as Button).set_pressed_no_signal(SaveManager.get_setting(key))
-	_rules.text = TIER_RULES.get(_variant_id, "")
 
 	var entry: Dictionary = SaveManager.stats().get("%s/%s" % [_variant_id, _difficulty], {})
 	var solved: int = entry.get("solved", 0)
@@ -217,27 +328,19 @@ func _refresh() -> void:
 	if best > 0.0:
 		_record.text += " · Best %s" % GameUi.format_time(best)
 
-	var today := SaveData.today()
-	var daily := SaveManager.daily()
-	var streak := SaveData.current_streak(daily, today)
-	var done := SaveData.solved_today(daily, today)
-	_daily.disabled = done
-	_daily.text = "Daily done" if done else "Daily"
-	if streak > 0:
-		_daily.text += " · %d" % streak
-
 
 func _describe_saved(game: Dictionary) -> String:
 	var variant := Variants.by_id(str(game.get("variant", "")))
 	var name := variant.display_name if variant != null else ""
 	var mode := str(game.get("mode", "classic"))
 	if mode == "daily":
-		name = "Daily"
+		name = "Daily puzzle"
 	elif mode == "tutorial":
-		name = "How to play"
+		name = "Practice cube"
 	else:
 		name += " · %s" % str(game.get("difficulty", "")).capitalize()
-	var elapsed := float(game.get("elapsed", 0.0)) if game.get("elapsed") is float or game.get("elapsed") is int else 0.0
+	var raw_elapsed: Variant = game.get("elapsed", 0.0)
+	var elapsed := float(raw_elapsed) if raw_elapsed is float or raw_elapsed is int else 0.0
 	return "%s · %s" % [name, GameUi.format_time(elapsed)]
 
 
@@ -265,12 +368,11 @@ func _fill_stats() -> void:
 	_stats_body.add_child(daily_heading)
 	var daily := SaveManager.daily()
 	var daily_entry: Dictionary = stats.get(SaveData.DAILY_KEY, {})
-	var line := UiKit.label("Streak %d · Longest %d · Solved %d" % [
+	_stats_body.add_child(UiKit.label("Streak %d · Longest %d · Solved %d" % [
 		SaveData.current_streak(daily, SaveData.today()),
 		int(daily.get("best_streak", 0)),
 		int(daily_entry.get("solved", 0)),
-	], "MutedLabel")
-	_stats_body.add_child(line)
+	], "MutedLabel"))
 
 
 func _add_entry_cells(grid: GridContainer, entry: Dictionary) -> void:
@@ -293,6 +395,8 @@ func _cell(text: String, header: bool = false, align_right: bool = true) -> Labe
 
 func _apply_theme() -> void:
 	theme = ThemeManager.theme
+	if not _tier_cards.is_empty():
+		_refresh()
 
 
 func _update_safe_area() -> void:
