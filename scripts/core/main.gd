@@ -35,6 +35,8 @@ func show_menu() -> void:
 	var menu := MenuScene.instantiate()
 	menu.new_game_requested.connect(_start_game)
 	menu.resume_requested.connect(_resume_game)
+	menu.daily_requested.connect(_open_and.bind("start_daily"))
+	menu.tutorial_requested.connect(_open_and.bind("start_tutorial"))
 	_swap(menu)
 	if _busy:
 		_busy = false
@@ -48,6 +50,18 @@ func _start_game(variant_id: String, difficulty: String) -> void:
 	await _fade_to(1.0)
 	var game := _open_game()
 	game.start_new(variant_id, difficulty)
+	_busy = false
+	_fade_to(0.0)
+
+
+## Fades to a fresh game scene and calls one of its start methods.
+func _open_and(start_method: String) -> void:
+	if _busy:
+		return
+	_busy = true
+	await _fade_to(1.0)
+	var game := _open_game()
+	game.call(start_method)
 	_busy = false
 	_fade_to(0.0)
 
@@ -92,5 +106,9 @@ func _fade_to(alpha: float) -> Signal:
 
 func _notification(what: int) -> void:
 	# Back on the menu leaves the app. In the game, the game scene pauses instead.
-	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _screen != null and _screen.has_signal("resume_requested"):
-		get_tree().quit()
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST or _screen == null or not _screen.has_signal("resume_requested"):
+		return
+	var menu: Node = _screen.get_node_or_null("UI/Menu")
+	if menu != null and menu.has_open_sheet():
+		return
+	get_tree().quit()

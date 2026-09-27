@@ -13,6 +13,8 @@ const DEMO_SEED := 7
 
 signal new_game_requested(variant_id: String, difficulty: String)
 signal resume_requested
+signal daily_requested
+signal tutorial_requested
 
 @onready var _environment: WorldEnvironment = $WorldEnvironment
 @onready var _camera_rig: Node3D = $CameraRig
@@ -25,6 +27,8 @@ var _demo: Board
 func _ready() -> void:
 	_menu.new_game_requested.connect(new_game_requested.emit)
 	_menu.resume_requested.connect(resume_requested.emit)
+	_menu.daily_requested.connect(daily_requested.emit)
+	_menu.tutorial_requested.connect(tutorial_requested.emit)
 	_menu.open_area_changed.connect(_camera_rig.set_view_area)
 	ThemeManager.theme_changed.connect(_apply_palette)
 	var variant := Variants.slice_sudoku(3)

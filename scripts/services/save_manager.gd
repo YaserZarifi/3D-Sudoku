@@ -105,8 +105,19 @@ func stats() -> Dictionary:
 
 
 func record_start(key: String) -> void:
+	if key == "":
+		return
 	SaveData.record_start(data["stats"], key)
 	request_save()
+
+
+func daily() -> Dictionary:
+	return data["daily"]
+
+
+func record_daily(today: String) -> void:
+	SaveData.record_daily(data["daily"], today)
+	save_file()
 
 
 func record_solve(key: String, seconds: float) -> void:

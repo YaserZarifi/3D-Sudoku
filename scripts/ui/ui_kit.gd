@@ -60,3 +60,42 @@ static func fade_in(control: Control, reduced_motion: bool) -> void:
 	control.modulate.a = 0.0
 	var tween := control.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tween.tween_property(control, "modulate:a", 1.0, ThemeTokens.motion(ThemeTokens.MOTION_SLOW, reduced_motion))
+
+
+## A dimmed full-screen layer with a centered panel. Returns
+## {"root": the layer, "box": column for content, "title": heading label}.
+## Hidden until the caller shows it.
+static func sheet(parent: Control, title: String) -> Dictionary:
+	var scrim := PanelContainer.new()
+	scrim.theme_type_variation = "Scrim"
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	scrim.visible = false
+	parent.add_child(scrim)
+	var center := CenterContainer.new()
+	scrim.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(ThemeTokens.dp(300), 0)
+	center.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", ThemeTokens.space(3))
+	panel.add_child(box)
+	var heading := label(title, "HeadingLabel")
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(heading)
+	return {"root": scrim, "box": box, "title": heading}
+
+
+## Shows or hides a sheet from sheet(), with a short fade and lift.
+static func show_sheet(root: Control, visible_now: bool, reduced_motion: bool) -> void:
+	root.visible = visible_now
+	if not visible_now:
+		return
+	fade_in(root, reduced_motion)
+	if reduced_motion:
+		return
+	var panel := root.get_child(0).get_child(0) as Control
+	panel.pivot_offset = panel.size * 0.5
+	panel.scale = Vector2.ONE * 0.96
+	var tween := panel.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(panel, "scale", Vector2.ONE, ThemeTokens.MOTION_SLOW)

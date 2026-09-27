@@ -10,12 +10,19 @@ const Validator := preload("res://scripts/sudoku/validator.gd")
 const Puzzle := preload("res://scripts/sudoku/puzzle.gd")
 
 const NO_SELECTION := -1
+const MODE_CLASSIC := "classic"
+const MODE_DAILY := "daily"
+const MODE_TUTORIAL := "tutorial"
+const MODES: PackedStringArray = [MODE_CLASSIC, MODE_DAILY, MODE_TUTORIAL]
 const SAVE_VERSION := 2
 ## Oldest save format from_dict() still reads.
 const MIN_SAVE_VERSION := 1
 
 var board: Board
 var difficulty: String = ""
+var mode: String = MODE_CLASSIC
+## Local date the daily puzzle belongs to, empty for other modes.
+var date: String = ""
 var puzzle_seed: int = 0
 var selected: int = NO_SELECTION
 var undo_stack: Array[Dictionary] = []
@@ -143,6 +150,8 @@ func to_dict() -> Dictionary:
 		"version": SAVE_VERSION,
 		"variant": board.variant.id,
 		"difficulty": difficulty,
+		"mode": mode,
+		"date": date,
 		"seed": puzzle_seed,
 		"givens": _givens_values(),
 		"values": Array(board.values),
@@ -197,6 +206,9 @@ static func from_dict(data: Dictionary) -> RefCounted:
 					clean["notes"] = pairs
 				state.undo_stack.append(clean)
 	state.difficulty = str(data.get("difficulty", ""))
+	var saved_mode := str(data.get("mode", MODE_CLASSIC))
+	state.mode = saved_mode if MODES.has(saved_mode) else MODE_CLASSIC
+	state.date = str(data.get("date", ""))
 	state.puzzle_seed = int(data.get("seed", 0))
 	state.elapsed = maxf(float(data.get("elapsed", 0.0)), 0.0)
 	state.mistakes = maxi(int(data.get("mistakes", 0)), 0)

@@ -21,18 +21,22 @@ var paused := false
 var notes_mode := false
 
 
-func new_game(variant_id: String, difficulty: String, puzzle_seed: int = -1) -> void:
+func new_game(variant_id: String, difficulty: String, puzzle_seed: int = -1, mode: String = GameState.MODE_CLASSIC, date: String = "") -> void:
 	var variant := Variants.by_id(variant_id)
 	if variant == null:
 		variant = Variants.slice_sudoku(3)
 	if puzzle_seed < 0:
 		puzzle_seed = randi()
-	start_with(GameState.from_puzzle(Generator.generate(variant, difficulty, puzzle_seed)))
+	var game_state: GameState = GameState.from_puzzle(Generator.generate(variant, difficulty, puzzle_seed))
+	game_state.mode = mode
+	game_state.date = date
+	start_with(game_state)
 
 
 func start_with(game_state: GameState) -> void:
 	state = game_state
 	paused = false
+	set_notes_mode(false)
 	game_started.emit()
 	selection_changed.emit(state.selected)
 	board_changed.emit(_all_indices())

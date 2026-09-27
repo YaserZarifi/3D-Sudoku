@@ -23,6 +23,7 @@ signal menu_pressed
 signal reset_view_pressed
 signal slice_pressed(axis: int)
 signal board_area_changed(area: Rect2)
+signal coach_skipped
 
 var board_input: InputManager
 
@@ -39,6 +40,9 @@ var _solved_summary: Label
 var _solved_title: Label
 var _shown_seconds := -1
 var _notes_button: Button
+var _coach: PanelContainer
+var _coach_text: Label
+var _coach_step: Label
 var _notes_mode := false
 
 
@@ -100,6 +104,16 @@ func set_pad_highlight(active_digits: PackedInt32Array, notes_mode: bool) -> voi
 			button.theme_type_variation = "PadButtonNotes" if notes_mode else "PadButton"
 
 
+## Tutorial card over the top of the board. Empty text hides it.
+func show_coach(text: String, step: int = 0, total: int = 0) -> void:
+	var was_visible := _coach.visible
+	_coach.visible = text != ""
+	_coach_text.text = text
+	_coach_step.text = "%d of %d" % [step + 1, total] if total > 0 else ""
+	if _coach.visible and (not was_visible or text != ""):
+		UiKit.fade_in(_coach, ThemeManager.reduced_motion())
+
+
 func set_digit_done(digit: int, done: bool) -> void:
 	if _pad_buttons.has(digit):
 		(_pad_buttons[digit] as Button).modulate.a = DONE_DIGIT_ALPHA if done else 1.0
@@ -114,18 +128,23 @@ func set_slice(axis: int, layer: int, size: int) -> void:
 
 
 func show_pause(visible_now: bool) -> void:
-	_pause_overlay.visible = visible_now
+	UiKit.show_sheet(_pause_overlay, visible_now, ThemeManager.reduced_motion())
 
 
 func show_solved(visible_now: bool, summary: String = "") -> void:
-	_solved_overlay.visible = visible_now
 	_solved_summary.text = summary
-	if visible_now:
-		UiKit.fade_in(_solved_overlay, ThemeManager.reduced_motion())
+	UiKit.show_sheet(_solved_overlay, visible_now, ThemeManager.reduced_motion())
 
 
+## Screen area the cube should fit in: the board region minus the
+## tutorial card when it's showing.
 func board_area() -> Rect2:
-	return board_input.get_global_rect()
+	var area := board_input.get_global_rect()
+	if _coach != null and _coach.visible:
+		var cut := _coach.size.y + ThemeTokens.space(2)
+		area.position.y += cut
+		area.size.y = maxf(area.size.y - cut, 1.0)
+	return area
 
 
 static func format_time(seconds: float) -> String:
@@ -169,6 +188,7 @@ func _build() -> void:
 	board_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board_input.resized.connect(func() -> void: board_area_changed.emit(board_area()))
 	column.add_child(board_input)
+	_build_coach()
 
 	var slice_bar := HBoxContainer.new()
 	column.add_child(slice_bar)
@@ -228,34 +248,48 @@ func _build() -> void:
 	box.move_child(_solved_summary, 1)
 
 
+func _build_coach() -> void:
+	_coach = PanelContainer.new()
+	_coach.theme_type_variation = "CardPanel"
+	_coach.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_coach.mouse_filter = Control.MOUSE_FILTER_STOP
+	_coach.visible = false
+	var report := func() -> void: board_area_changed.emit(board_area())
+	_coach.resized.connect(report)
+	_coach.visibility_changed.connect(report)
+	board_input.add_child(_coach)
+	var row := HBoxContainer.new()
+	_coach.add_child(row)
+	var texts := VBoxContainer.new()
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.add_theme_constant_override("separation", 0)
+	row.add_child(texts)
+	_coach_step = UiKit.label("", "CaptionLabel")
+	texts.add_child(_coach_step)
+	_coach_text = UiKit.label("")
+	_coach_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_coach_text.add_theme_font_size_override("font_size", ThemeTokens.font_size("md"))
+	texts.add_child(_coach_text)
+	var skip := UiKit.button("Skip", "GhostButton")
+	skip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	skip.pressed.connect(coach_skipped.emit)
+	row.add_child(skip)
+
+
 func _overlay(title: String, actions: Array) -> Control:
 	return _overlay_parts(title, actions)[0]
 
 
 ## Returns [overlay, title label, button column].
 func _overlay_parts(title: String, actions: Array) -> Array:
-	var scrim := PanelContainer.new()
-	scrim.theme_type_variation = "Scrim"
-	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
-	scrim.visible = false
-	add_child(scrim)
-	var center := CenterContainer.new()
-	scrim.add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(ThemeTokens.dp(280), 0)
-	center.add_child(panel)
-	var box := VBoxContainer.new()
-	panel.add_child(box)
-	var heading := UiKit.label(title, "HeadingLabel")
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(heading)
+	var sheet := UiKit.sheet(self, title)
+	var box: VBoxContainer = sheet["box"]
 	for action: Array in actions:
 		var button := UiKit.button(action[0], action[1])
 		var action_signal: Signal = action[2]
 		button.pressed.connect(action_signal.emit)
 		box.add_child(button)
-	return [scrim, heading, box]
+	return [sheet["root"], sheet["title"], box]
 
 
 func _apply_theme() -> void:

@@ -7,6 +7,15 @@ const Variants := preload("res://scripts/sudoku/variants.gd")
 const GameState := preload("res://scripts/core/game_state.gd")
 const CellStates := preload("res://scripts/board/cell_states.gd")
 const GameUi := preload("res://scripts/ui/game_ui.gd")
+const SaveData := preload("res://scripts/core/save_data.gd")
+const Tutorial := preload("res://scripts/core/tutorial.gd")
+
+## Fixed so every new player gets the same gentle first cube.
+const TUTORIAL_SEED := 3
+const TUTORIAL_DIFFICULTY := "easy"
+
+const DAILY_DIFFICULTY := "medium"
+const MONTHS: PackedStringArray = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 ## Largest step, in radians, the camera takes to show a selected cell.
 const SELECTION_ASSIST_ANGLE := 0.35
@@ -24,6 +33,7 @@ signal menu_requested
 var _focus_axis := CellStates.NO_FOCUS
 var _focus_layer := 0
 var _celebrating := false
+var _tutorial: Tutorial
 
 
 func _ready() -> void:
@@ -40,6 +50,7 @@ func _ready() -> void:
 	_ui.reset_view_pressed.connect(_camera_rig.reset_view)
 	_ui.slice_pressed.connect(_on_slice)
 	_ui.board_area_changed.connect(_camera_rig.set_view_area)
+	_ui.coach_skipped.connect(_on_coach_skipped)
 
 	var board_input := _ui.board_input
 	board_input.tapped.connect(_on_tap)
@@ -53,7 +64,7 @@ func _ready() -> void:
 	_game.board_changed.connect(_on_board_changed)
 	_game.digit_placed.connect(_on_digit_placed)
 	_game.puzzle_solved.connect(_on_solved)
-	_game.notes_mode_changed.connect(func(_on: bool) -> void: _refresh_pad())
+	_game.notes_mode_changed.connect(_on_notes_mode_changed)
 
 	ThemeManager.theme_changed.connect(_apply_palette)
 	SaveManager.settings_changed.connect(_apply_motion_setting)
@@ -69,6 +80,22 @@ func start_new(variant_id: String, difficulty: String) -> void:
 	_save()
 
 
+## Today's shared puzzle: Slice Sudoku, seeded by the local date.
+func start_daily() -> void:
+	var today := SaveData.today()
+	_game.new_game(Variants.SLICE_SUDOKU_ID, DAILY_DIFFICULTY, SaveData.daily_seed(today), GameState.MODE_DAILY, today)
+	SaveManager.record_start(_stats_key())
+	_save()
+
+
+## The guided first game on a small Latin Cube.
+func start_tutorial() -> void:
+	_game.new_game(Variants.LATIN_CUBE_ID, TUTORIAL_DIFFICULTY, TUTORIAL_SEED, GameState.MODE_TUTORIAL)
+	_tutorial = Tutorial.new()
+	_show_coach()
+	_save()
+
+
 ## Returns false when the saved game can't be restored.
 func resume(saved: Dictionary) -> bool:
 	var state := GameState.from_dict(saved)
@@ -76,6 +103,10 @@ func resume(saved: Dictionary) -> bool:
 		SaveManager.clear_game()
 		return false
 	_game.start_with(state)
+	if state.mode == GameState.MODE_TUTORIAL and not SaveManager.get_setting("tutorial_done"):
+		_tutorial = Tutorial.new()
+		_tutorial.jump_to("finish")
+		_show_coach()
 	return true
 
 
@@ -126,8 +157,7 @@ func _on_game_started() -> void:
 	_camera_rig.reset_view()
 	_focus_axis = CellStates.NO_FOCUS
 	_focus_layer = 0
-	var level: String = _game.state.difficulty.capitalize()
-	_ui.setup(variant.digit_count, "%s · %s" % [variant.display_name, level] if level != "" else variant.display_name)
+	_ui.setup(variant.digit_count, _title())
 	_ui.set_slice(_focus_axis, _focus_layer, variant.size)
 	_refresh_pad()
 	_camera_rig.set_view_area(_ui.board_area())
@@ -151,6 +181,7 @@ func _on_tap(screen_position: Vector2, is_double: bool) -> void:
 func _on_orbit_released(velocity: Vector2) -> void:
 	_board.set_exploded(false)
 	_camera_rig.release(velocity)
+	_tutorial_event("orbit")
 
 
 func _on_digit(digit: int) -> void:
@@ -173,6 +204,7 @@ func _on_selection_changed(index: int) -> void:
 	_refresh_pad()
 	if index >= 0:
 		_assist_view(index)
+		_tutorial_event("select")
 
 
 func _on_board_changed(_changed: PackedInt32Array) -> void:
@@ -187,6 +219,7 @@ func _on_board_changed(_changed: PackedInt32Array) -> void:
 
 
 func _on_digit_placed(index: int, conflict: bool) -> void:
+	_tutorial_event("place_conflict" if conflict else "place_ok")
 	if conflict:
 		_board.shake_cell(index)
 		AudioManager.play("conflict")
@@ -199,7 +232,14 @@ func _on_digit_placed(index: int, conflict: bool) -> void:
 
 func _on_solved() -> void:
 	var state: GameState = _game.state
-	SaveManager.record_solve(_stats_key(), state.elapsed)
+	if _stats_key() != "":
+		SaveManager.record_solve(_stats_key(), state.elapsed)
+	if state.mode == GameState.MODE_DAILY:
+		SaveManager.record_daily(state.date)
+	if state.mode == GameState.MODE_TUTORIAL:
+		SaveManager.set_setting("tutorial_done", true)
+		_tutorial = null
+		_ui.show_coach("")
 	SaveManager.clear_game()
 	_focus_axis = CellStates.NO_FOCUS
 	_refresh_board()
@@ -218,6 +258,10 @@ func _on_solved() -> void:
 	var best: float = SaveManager.stats().get(_stats_key(), {}).get("best_time", 0.0)
 	if best > 0.0:
 		summary += "\nBest %s" % GameUi.format_time(best)
+	if state.mode == GameState.MODE_DAILY:
+		summary += "\nStreak %d" % SaveData.current_streak(SaveManager.daily(), SaveData.today())
+	if state.mode == GameState.MODE_TUTORIAL:
+		summary = "You've got it.\nSlice Sudoku works the same way,\nwith slices and digits 1 to 9."
 	_ui.show_solved(true, summary)
 
 
@@ -235,6 +279,31 @@ func _on_slice(axis: int) -> void:
 		_focus_layer = 0
 	_ui.set_slice(_focus_axis, _focus_layer, size)
 	_refresh_board()
+	_tutorial_event("slice")
+
+
+func _on_notes_mode_changed(enabled: bool) -> void:
+	_refresh_pad()
+	if enabled:
+		_tutorial_event("notes_on")
+
+
+func _on_coach_skipped() -> void:
+	SaveManager.set_setting("tutorial_done", true)
+	_tutorial = null
+	_ui.show_coach("")
+
+
+func _tutorial_event(event: String) -> void:
+	if _tutorial != null and _tutorial.handle(event):
+		_show_coach()
+
+
+func _show_coach() -> void:
+	if _tutorial == null or _tutorial.is_finished():
+		_ui.show_coach("")
+		return
+	_ui.show_coach(_tutorial.text(), _tutorial.step, _tutorial.step_count())
 
 
 func _on_restart() -> void:
@@ -244,6 +313,8 @@ func _on_restart() -> void:
 
 
 func _on_new_game() -> void:
+	_tutorial = null
+	_ui.show_coach("")
 	_ui.show_pause(false)
 	_ui.show_solved(false)
 	start_new(SaveManager.get_setting("last_variant"), SaveManager.get_setting("last_difficulty"))
@@ -311,8 +382,32 @@ func _save(now: bool = false) -> void:
 		SaveManager.flush()
 
 
+## Where this game's statistics go. Empty for the tutorial, which isn't counted.
 func _stats_key() -> String:
+	match _game.state.mode:
+		GameState.MODE_DAILY:
+			return SaveData.DAILY_KEY
+		GameState.MODE_TUTORIAL:
+			return ""
 	return "%s/%s" % [_game.state.variant().id, _game.state.difficulty]
+
+
+func _title() -> String:
+	var state: GameState = _game.state
+	match state.mode:
+		GameState.MODE_DAILY:
+			return "Daily · %s" % _short_date(state.date)
+		GameState.MODE_TUTORIAL:
+			return "How to play"
+	var level := state.difficulty.capitalize()
+	return "%s · %s" % [state.variant().display_name, level] if level != "" else state.variant().display_name
+
+
+static func _short_date(date: String) -> String:
+	var parts := date.split("-")
+	if parts.size() != 3:
+		return date
+	return "%s %d" % [MONTHS[clampi(parts[1].to_int() - 1, 0, 11)], parts[2].to_int()]
 
 
 func _apply_palette() -> void:
