@@ -2,18 +2,14 @@
 
 Each milestone ends with tests passing, a manual run, updated docs and one or more clean commits.
 
-## 1. Project foundation (in progress)
+## 1. Project foundation (done)
 
-Done:
 - Repository, `.gitignore`, `.gitattributes`
 - `project.godot`: Mobile renderer, portrait, stretch settings, touch emulation, input actions
 - Minimal main scene
 - Docs: rules, data model, architecture, interaction model, design system
 - Headless test runner and cloud setup script
-
-Left:
-- Open the project in Godot (headless is fine) and fix any warnings from the hand-written files
-- Confirm the test runner passes the smoke test
+- Project imports headless on Godot 4.5.1 with no warnings, and the smoke test passes
 
 The theme resource and InputManager move into the milestones that first use them (3 and 5), so no empty systems get built now.
 
