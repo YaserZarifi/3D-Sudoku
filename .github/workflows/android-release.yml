@@ -43,6 +43,8 @@ jobs:
 
       - name: Resolve version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             tag="${{ inputs.version }}"
@@ -57,14 +59,25 @@ jobs:
           fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "name=${tag#v}" >> "$GITHUB_OUTPUT"
+          # A branch push never rebuilds a published version: its APK would
+          # get a different key and stop installing over the old one.
+          skip=false
+          if [ "${{ github.event_name }}" = "push" ] && [ "${GITHUB_REF_TYPE}" != "tag" ] \
+            && gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::Release $tag already exists, nothing to do."
+            skip=true
+          fi
+          echo "skip=${skip}" >> "$GITHUB_OUTPUT"
 
       - name: Install Godot and Android templates
+        if: steps.version.outputs.skip != 'true'
         run: |
           bash scripts/tools/setup_godot.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           python3 scripts/tools/fetch_android_templates.py "$GODOT_VERSION"
 
       - name: Point Godot at the Android SDK
+        if: steps.version.outputs.skip != 'true'
         run: |
           sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           ls "$sdk/build-tools"
@@ -78,6 +91,7 @@ jobs:
           SETTINGS
 
       - name: Prepare signing key
+        if: steps.version.outputs.skip != 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -104,17 +118,20 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Stamp version
+        if: steps.version.outputs.skip != 'true'
         run: |
           sed -i "s/^version\/name=.*/version\/name=\"${{ steps.version.outputs.name }}\"/" export_presets.cfg
           sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/" export_presets.cfg
           grep -E "^version/" export_presets.cfg
 
       - name: Import and test
+        if: steps.version.outputs.skip != 'true'
         run: |
           godot --headless --path . --import
           godot --headless --path . -s tests/run_tests.gd
 
       - name: Export APK
+        if: steps.version.outputs.skip != 'true'
         run: |
           apk="builds/android/3d-sudoku-${{ steps.version.outputs.name }}.apk"
           mkdir -p builds/android
@@ -129,6 +146,7 @@ jobs:
           echo "APK=$apk" >> "$GITHUB_ENV"
 
       - name: Write release notes
+        if: steps.version.outputs.skip != 'true'
         run: |
           notes="docs/releases/${{ steps.version.outputs.tag }}.md"
           if [ -f "$notes" ]; then cp "$notes" release-notes.md; else echo "3D Sudoku ${{ steps.version.outputs.name }}" > release-notes.md; fi
@@ -142,6 +160,7 @@ jobs:
           } >> release-notes.md
 
       - uses: softprops/action-gh-release@v2
+        if: steps.version.outputs.skip != 'true'
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
