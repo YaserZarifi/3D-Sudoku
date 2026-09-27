@@ -13,7 +13,7 @@ Each milestone ends with tests passing, a manual run, updated docs and one or mo
 
 The theme resource and InputManager move into the milestones that first use them (3 and 5), so no empty systems get built now.
 
-## 2. Sudoku engine
+## 2. Sudoku engine (done)
 
 - `Variant` with `latin_cube(3)` and `slice_sudoku(3)` factories, index helpers and precomputed peers
 - `Board`, `Validator`, `Solver` (propagation plus backtracking, with solution counting and stats)
@@ -22,6 +22,8 @@ The theme resource and InputManager move into the milestones that first use them
 - Measure clue counts and generation time for Tier 2 and write them into game-rules.md
 
 Done when: all tests pass headless, and generation for Tier 2 takes under ~200 ms on desktop.
+
+Result: 31 engine tests pass. Tier 2 generation takes about 5 ms (worst seen 12 ms). Clue counts are in game-rules.md.
 
 ## 3. 3D board prototype
 
